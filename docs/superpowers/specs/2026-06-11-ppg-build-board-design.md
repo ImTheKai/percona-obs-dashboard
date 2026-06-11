@@ -50,13 +50,44 @@ backend/
     api/handlers.go             — /packages and /events handlers
 ```
 
-### 3.2 Configuration (environment variables)
+### 3.2 Configuration
 
-All config is read from environment variables. `.env.example` documents every key.
+Config is loaded in this priority order (highest wins):
+
+1. **Environment variables** — standard 12-factor style; takes precedence over the config file
+2. **Config file** — YAML file at the path given by `CONFIG_FILE` env var (default: `./config.yaml`); parsed on startup
+3. **Built-in defaults**
+
+Both mechanisms support the same keys. The config file uses snake_case equivalents of the env var names. `.env.example` and `config.yaml.example` both ship in the repo.
+
+**Example `config.yaml`:**
+```yaml
+obs:
+  username: ""
+  password: ""
+  base_url: "https://build.opensuse.org"
+
+mq:
+  url: "amqps://opensuse:opensuse@rabbit.opensuse.org:5671/"
+
+poller:
+  interval: "5m"
+
+store:
+  db_path: "/data/obsboard.db"
+  event_retention: "7d"
+
+server:
+  http_port: 8080
+  frontend_dir: ""
+```
+
+**Environment variable reference:**
 
 | Variable | Default | Description |
 |---|---|---|
-| `OBS_USERNAME` | — | OBS account username |
+| `CONFIG_FILE` | `./config.yaml` | Path to YAML config file |
+| `OBS_USERNAME` | — | OBS account username (**required** — all OBS API endpoints require auth) |
 | `OBS_PASSWORD` | — | OBS account password |
 | `OBS_BASE_URL` | `https://build.opensuse.org` | OBS API base URL |
 | `MQ_URL` | `amqps://opensuse:opensuse@rabbit.opensuse.org:5671/` | AMQP connection URL |
@@ -65,6 +96,8 @@ All config is read from environment variables. `.env.example` documents every ke
 | `EVENT_RETENTION` | `7d` | How long events are kept in the store |
 | `HTTP_PORT` | `8080` | Port the HTTP server listens on |
 | `FRONTEND_DIR` | `` (unset) | Path to Vue build output to serve as static files; unset in dev |
+
+> **Auth note:** Every OBS API endpoint requires HTTP Basic authentication. Anonymous access returns HTTP 401. `OBS_USERNAME` and `OBS_PASSWORD` must always be set.
 
 ### 3.3 MQ Consumer (`internal/mq`)
 
@@ -80,7 +113,7 @@ All config is read from environment variables. `.env.example` documents every ke
 
 Runs on a configurable tick (default 5 minutes). Each tick:
 
-1. **Discover subprojects** — `GET /source?project=isv:percona` to enumerate projects; classify each into scope tier (`common`, `ppgcommon`, `version`, `container`, `release`) by name pattern
+1. **Discover subprojects** — `GET /source/isv:percona` to list entries under the root project; recursively walk sub-namespaces (e.g. `GET /source/isv:percona:ppg`) to enumerate all descendant projects. Classify each discovered project into a scope tier (`common`, `ppgcommon`, `version`, `container`, `release`) by name pattern.
 2. **Fetch build results** — `GET /build/<project>/_result` per subproject; read repos/arches from project `_meta`
 3. **Diff against store** — compare incoming states against `store.QueryPackages()`; call `store.UpsertPackageState()` for any changed packages and `store.AppendEvent()` for state transitions
 4. **Bootstrap** — on first tick, fully populates the store from scratch (no prior state assumed)
@@ -239,7 +272,6 @@ In production only the `backend` container is needed — the Go binary serves th
 
 ## 6. Open questions (deferred, not blocking)
 
-1. **OBS auth** — `isv:` projects may require an authenticated OBS account. `OBS_USERNAME`/`OBS_PASSWORD` are wired into the config; validate whether anonymous access is sufficient for build results.
-2. **Multi-product** — the API is parameterised by `product` + `version` today. Extending to PMM, PXC etc. requires only adding OBS root patterns; no schema changes.
-3. **Trigger inference fidelity** — `_builddepinfo` diffing is best-effort. Acceptable to ship `kind: "unknown"` for cases where the cause can't be determined; the dashboard remains useful without it.
-4. **Event store on restart** — MQ events missed during downtime are recovered by the first poller tick. Events older than `EVENT_RETENTION` are lost; this is acceptable for an internal morning-check tool.
+1. **Multi-product** — the API is parameterised by `product` + `version` today. Extending to PMM, PXC etc. requires only adding OBS root patterns; no schema changes.
+2. **Trigger inference fidelity** — `_builddepinfo` diffing is best-effort. Acceptable to ship `kind: "unknown"` for cases where the cause can't be determined; the dashboard remains useful without it.
+3. **Event store on restart** — MQ events missed during downtime are recovered by the first poller tick. Events older than `EVENT_RETENTION` are lost; this is acceptable for an internal morning-check tool.
