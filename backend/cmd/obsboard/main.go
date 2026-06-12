@@ -13,6 +13,7 @@ import (
 
 	"github.com/percona/obs-dashboard/internal/api"
 	"github.com/percona/obs-dashboard/internal/config"
+	"github.com/percona/obs-dashboard/internal/hub"
 	"github.com/percona/obs-dashboard/internal/mq"
 	"github.com/percona/obs-dashboard/internal/obs"
 	"github.com/percona/obs-dashboard/internal/store"
@@ -41,14 +42,15 @@ func run() error {
 	defer cancel()
 
 	obsClient := obs.NewClient(cfg.OBS.BaseURL, cfg.OBS.Username, cfg.OBS.Password)
-	poller := obs.NewPoller(obsClient, db, cfg.Poller.Interval)
-	consumer := mq.NewConsumer(cfg.MQ.URL, db)
+	h := hub.New()
+	poller := obs.NewPoller(obsClient, db, cfg.Poller.Interval, h)
+	consumer := mq.NewConsumer(cfg.MQ.URL, db, h)
 
 	go poller.Run(ctx)
 	go consumer.Run(ctx)
 	go runPruner(ctx, db, cfg.Poller.Interval, cfg.Store.EventRetention)
 
-	router := api.NewRouter(db)
+	router := api.NewRouter(db, h)
 
 	var handler http.Handler = router
 	if cfg.Server.FrontendDir != "" {
