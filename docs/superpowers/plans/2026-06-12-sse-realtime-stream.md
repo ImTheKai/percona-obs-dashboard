@@ -799,7 +799,7 @@
 **Acceptance Criteria:**
 - [ ] `cd frontend && ./node_modules/.bin/vue-tsc --noEmit` exits 0
 - [ ] `App.vue` no longer contains `setInterval` or `clearInterval`
-- [ ] `App.vue` imports and calls `useRealtimeStream(allPackages, events, refresh)`
+- [ ] `App.vue` imports and calls `useRealtimeStream(rawPackages, events, refresh)` where `rawPackages` is the raw `Ref<Package[]>` from `rawData`
 - [ ] The initial `refresh()` call on mount is preserved
 - [ ] `ContextBar.vue` shows "Live" instead of "Auto-refresh 5 min"
 
@@ -828,10 +828,10 @@
 
   // REPLACE WITH:
   onMounted(() => refresh())
-  useRealtimeStream(allPackages, events, refresh)
+  useRealtimeStream(rawPackages, events, refresh)
   ```
 
-  Note: `allPackages` is the `data` ref returned by `usePackages` (line 64), and `events` is the `data` ref returned by `useEvents` (line 65). The `refresh` function is defined at line 111.
+  Note: `rawPackages` is the raw `Ref<Package[]>` exposed as `rawData` from `usePackages`. You must destructure it: `const { data: allPackages, rawData: rawPackages, ... } = usePackages(...)`. Do NOT pass `allPackages` — it is a `ComputedRef<Package[]>` and writes to it are silently dropped. The `events` variable is the raw `Ref<Event[]>` from `useEvents` (line 65). The `refresh` function is defined at line 111.
 
   Also remove `onUnmounted` from the `vue` import if it is no longer used elsewhere in the file. Check the import line:
 
