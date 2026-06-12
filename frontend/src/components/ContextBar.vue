@@ -1,16 +1,21 @@
 <script setup lang="ts">
+import type { Context } from '../types/api'
+
 defineProps<{
   version: string
   updatedAt: string | null
   activeScopes: string[]
+  contexts: Context[]
+  selectedContext: Context
+  availableVersions: string[]
 }>()
 
 const emit = defineEmits<{
   'update:version': [version: string]
   'toggle-scope': [scope: string]
+  'update:context': [ctx: Context]
 }>()
 
-const VERSIONS = ['17', '18', '16']
 const SCOPES = [
   { id: 'all', label: 'All' },
   { id: 'common', label: 'Common' },
@@ -37,8 +42,7 @@ function tabStyle(v: string, selected: string): string {
 }
 
 function scopeStyle(id: string, active: boolean): string {
-  const isActive = id === 'all' ? active : active
-  return isActive
+  return active
     ? 'background: var(--brand-purple); color: #fff; padding: 4px 11px; border-radius: 8px; border: none; font-size: 11.5px; font-weight: 600; cursor: pointer; font-family: inherit;'
     : 'background: transparent; color: var(--text-secondary); padding: 4px 11px; border-radius: 8px; border: 1px solid var(--border); font-size: 11.5px; font-weight: 500; cursor: pointer; font-family: inherit;'
 }
@@ -46,7 +50,7 @@ function scopeStyle(id: string, active: boolean): string {
 
 <template>
   <div style="background: var(--bg-card); border: 1px solid var(--border); border-radius: 14px; padding: 14px 18px; display: flex; flex-direction: column; gap: 13px;">
-    <!-- Top row: tech badge + version tabs + OBS root + updated -->
+    <!-- Top row: tech badge + context selector + version tabs + updated -->
     <div style="display: flex; align-items: center; gap: 16px; flex-wrap: wrap;">
       <span style="display: inline-flex; align-items: center; gap: 7px; padding: 5px 12px; border-radius: 8px; background: var(--tint-postgres); color: var(--tech-postgres); font-size: 12px; font-weight: 700; border: 1px solid rgba(0,94,214,0.15);">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" style="flex-shrink:0;">
@@ -57,19 +61,32 @@ function scopeStyle(id: string, active: boolean): string {
         PostgreSQL
       </span>
 
-      <div style="display: flex; align-items: center; gap: 6px;">
+      <!-- Context selector: dropdown when multiple contexts exist, plain badge otherwise -->
+      <select
+        v-if="contexts.length > 1"
+        :value="selectedContext.apiBase"
+        @change="e => { const apiBase = (e.target as HTMLSelectElement).value; const ctx = contexts.find(c => c.apiBase === apiBase); if (ctx) emit('update:context', ctx) }"
+        style="font-family: var(--font-mono); font-size: 12.5px; color: var(--text-secondary); background: var(--bg-muted); padding: 5px 10px; border-radius: 7px; border: 1px solid var(--border); cursor: pointer;"
+      >
+        <option v-for="ctx in contexts" :key="ctx.apiBase" :value="ctx.apiBase">{{ ctx.prefix }}</option>
+      </select>
+      <code
+        v-else
+        style="font-family: var(--font-mono); font-size: 12.5px; color: var(--text-secondary); background: var(--bg-muted); padding: 5px 10px; border-radius: 7px;"
+      >{{ selectedContext.prefix }}</code>
+
+      <!-- Version tabs: hidden when no versioned packages exist in the context -->
+      <div v-if="availableVersions.length > 0" style="display: flex; align-items: center; gap: 6px;">
         <span style="font-size: 11px; color: var(--text-muted); font-weight: 600; text-transform: uppercase; letter-spacing: 0.06em; margin-right: 2px;">Version</span>
         <div style="display: flex; gap: 3px; background: var(--bg-muted); padding: 3px; border-radius: 9px;">
           <button
-            v-for="v in VERSIONS"
+            v-for="v in availableVersions"
             :key="v"
             @click="emit('update:version', v)"
             :style="tabStyle(v, version)"
           >{{ v }}</button>
         </div>
       </div>
-
-      <code style="font-family: var(--font-mono); font-size: 12.5px; color: var(--text-secondary); background: var(--bg-muted); padding: 5px 10px; border-radius: 7px;">isv:percona:ppg</code>
 
       <div style="margin-left: auto; display: flex; align-items: center; gap: 16px; font-size: 12px; color: var(--text-muted);">
         <span>Updated <strong style="color: var(--text-secondary); font-weight: 600;">{{ formatTime(updatedAt) }}</strong></span>

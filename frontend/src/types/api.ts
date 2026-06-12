@@ -2,6 +2,12 @@ export type BuildState = 'succeeded' | 'failed' | 'unresolvable' | 'broken' | 'b
 export type PackageScope = 'common' | 'ppgcommon' | 'version' | 'container' | 'release' | 'pr'
 export type EventType = 'triggered' | 'started' | 'succeeded' | 'failed' | 'unresolvable' | 'broken' | 'blocked' | 'published'
 
+export interface Context {
+  label: string
+  apiBase: string  // e.g. "/api/products/ppg" or "/api/pr/pr-92/ppg"
+  prefix: string   // e.g. "isv:percona:ppg" or "isv:percona:PR:pr-92:ppg"
+}
+
 export interface Trigger {
   what: string
   kind: string

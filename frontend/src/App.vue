@@ -4,7 +4,7 @@ import AppHeader from './components/AppHeader.vue'
 import ContextBar from './components/ContextBar.vue'
 import HealthHeader from './components/HealthHeader.vue'
 import MainGrid from './components/MainGrid.vue'
-import PRBoard from './components/PRBoard.vue'
+import type { Context } from './types/api'
 import { usePackages } from './composables/usePackages'
 import { useEvents } from './composables/useEvents'
 import { usePRPackages } from './composables/usePRPackages'
@@ -18,6 +18,15 @@ watch(theme, (val) => {
 function toggleTheme() {
   theme.value = theme.value === 'light' ? 'dark' : 'light'
 }
+
+// Context
+const DEFAULT_CONTEXT: Context = {
+  label: 'PPG',
+  apiBase: '/api/products/ppg',
+  prefix: 'isv:percona:ppg',
+}
+const selectedContext = ref<Context>(DEFAULT_CONTEXT)
+const prefixDepth = computed(() => selectedContext.value.prefix.split(':').length)
 
 // Navigation state
 const version = ref('17')
@@ -36,15 +45,63 @@ function toggleScope(scope: string) {
   }
 }
 
+function selectContext(ctx: Context) {
+  selectedContext.value = ctx
+  activeScopes.value = []
+  // version is reset by the availableVersions watcher below
+  refresh()
+}
+
 // Event window state
 const windowMin = ref(1440)
 const customFrom = ref<string | null>(null)
 const customTo = ref<string | null>(null)
 
 // Data fetching
-const { data: allPackages, refresh: refreshPackages, filterByScope } = usePackages('ppg', version)
-const { data: events, refresh: refreshEvents } = useEvents('ppg', version)
+const apiBase = computed(() => selectedContext.value.apiBase)
+const { data: allPackages, availableVersions, refresh: refreshPackages, filterByScope } = usePackages(apiBase, version, prefixDepth)
+const { data: events, refresh: refreshEvents } = useEvents(apiBase, version)
 const { data: prGroups, refresh: refreshPR } = usePRPackages()
+
+// Reset version to highest available when context changes (packages reload)
+watch(availableVersions, (vers) => {
+  if (vers.length > 0 && !vers.includes(version.value)) {
+    version.value = vers[0]
+  }
+})
+
+// Derive available contexts from PR groups data
+const contexts = computed<Context[]>(() => {
+  const seen = new Set<string>()
+  const prContexts: Context[] = []
+
+  for (const group of prGroups.value) {
+    for (const pkg of group.packages) {
+      const parts = pkg.project.split(':')
+      const prIdx = parts.findIndex(p => p.toLowerCase() === 'pr')
+      if (prIdx < 0 || prIdx + 2 >= parts.length) continue
+      const prSegment = parts[prIdx + 1]   // "pr-92"
+      const subproject = parts[prIdx + 2]  // "ppg"
+      const key = `${prSegment}:${subproject}`
+      if (seen.has(key)) continue
+      seen.add(key)
+      const prNum = prSegment.replace(/^pr-/i, '')
+      prContexts.push({
+        label: `PR #${prNum} · ${subproject}`,
+        apiBase: `/api/pr/${prSegment}/${subproject}`,
+        prefix: `isv:percona:PR:${prSegment}:${subproject}`,
+      })
+    }
+  }
+
+  prContexts.sort((a, b) => {
+    const na = parseInt(a.prefix.split(':')[4]?.replace(/^pr-/i, '') ?? '0')
+    const nb = parseInt(b.prefix.split(':')[4]?.replace(/^pr-/i, '') ?? '0')
+    return nb - na
+  })
+
+  return [DEFAULT_CONTEXT, ...prContexts]
+})
 
 const filteredPackages = computed(() => filterByScope(activeScopes.value))
 const updatedAt = ref<string | null>(null)
@@ -82,8 +139,12 @@ watch([windowMin, customFrom, customTo], () => refresh())
         :version="version"
         :updated-at="updatedAt"
         :active-scopes="activeScopes"
+        :contexts="contexts"
+        :selected-context="selectedContext"
+        :available-versions="availableVersions"
         @update:version="version = $event"
         @toggle-scope="toggleScope"
+        @update:context="selectContext"
       />
       <HealthHeader :packages="allPackages" />
       <MainGrid
@@ -96,7 +157,6 @@ watch([windowMin, customFrom, customTo], () => refresh())
         @update:custom-from="customFrom = $event"
         @update:custom-to="customTo = $event"
       />
-      <PRBoard :groups="prGroups" />
     </div>
   </div>
 </template>
