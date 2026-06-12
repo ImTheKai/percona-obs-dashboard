@@ -95,23 +95,13 @@ func (p *Poller) tick(ctx context.Context) {
 	}
 }
 
-// discoverProjects recursively enumerates all subprojects under root.
+// discoverProjects returns all OBS projects under root using the search API.
 func (p *Poller) discoverProjects(ctx context.Context, root string) ([]string, error) {
-	children, err := p.client.ListSubprojects(ctx, root)
+	sub, err := p.client.SearchProjects(ctx, root)
 	if err != nil {
 		return nil, err
 	}
-	all := []string{root}
-	for _, child := range children {
-		sub, err := p.discoverProjects(ctx, child)
-		if err != nil {
-			slog.Warn("poller: discover subproject", "project", child, "err", err)
-			all = append(all, child)
-			continue
-		}
-		all = append(all, sub...)
-	}
-	return all, nil
+	return append([]string{root}, sub...), nil
 }
 
 // InferScope classifies an OBS project name into a Scope tier.

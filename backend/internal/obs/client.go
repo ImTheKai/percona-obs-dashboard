@@ -99,25 +99,31 @@ type PackageBuildState struct {
 	State   string
 }
 
-// ListSubprojects returns the names of direct children under root.
-// Returns fully-qualified project names like "isv:percona:ppg".
-func (c *Client) ListSubprojects(ctx context.Context, root string) ([]string, error) {
-	resp, err := c.get(ctx, "/source/"+root)
+// SearchProjects returns all OBS projects whose names start with the given prefix
+// (exclusive of the prefix itself). Uses the OBS search API.
+func (c *Client) SearchProjects(ctx context.Context, prefix string) ([]string, error) {
+	// XPath: starts-with(@name,'prefix:') to catch all sub-namespaces
+	path := "/search/project/id?match=starts-with(@name,'" + prefix + ":"  + "')"
+	resp, err := c.get(ctx, path)
 	if err != nil {
 		return nil, err
 	}
 	defer resp.Body.Close()
 
-	var dir directoryListing
-	if err := xml.NewDecoder(resp.Body).Decode(&dir); err != nil {
-		return nil, fmt.Errorf("parse /source/%s: %w", root, err)
+	var col struct {
+		Projects []struct {
+			Name string `xml:"name,attr"`
+		} `xml:"project"`
+	}
+	if err := xml.NewDecoder(resp.Body).Decode(&col); err != nil {
+		return nil, fmt.Errorf("parse search/project/id: %w", err)
 	}
 
-	projects := make([]string, 0, len(dir.Entries))
-	for _, e := range dir.Entries {
-		projects = append(projects, root+":"+e.Name)
+	names := make([]string, 0, len(col.Projects))
+	for _, p := range col.Projects {
+		names = append(names, p.Name)
 	}
-	return projects, nil
+	return names, nil
 }
 
 // BuildResults fetches all package build states for a project.
