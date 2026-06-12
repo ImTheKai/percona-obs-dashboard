@@ -295,6 +295,8 @@ func rollupToEventType(state model.RollupState) model.EventType {
 func inferScopeFromProject(project string) model.Scope {
 	lower := strings.ToLower(project)
 	switch {
+	case strings.HasPrefix(lower, "isv:percona:pr:"):
+		return model.ScopePR
 	case strings.Contains(lower, "container"):
 		return model.ScopeContainer
 	case strings.Contains(lower, "release"):
