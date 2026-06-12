@@ -1,1 +1,93 @@
 package model
+
+import "time"
+
+type RollupState string
+
+const (
+	RollupFailed       RollupState = "failed"
+	RollupBroken       RollupState = "broken"
+	RollupUnresolvable RollupState = "unresolvable"
+	RollupBlocked      RollupState = "blocked"
+	RollupBuilding     RollupState = "building"
+	RollupSucceeded    RollupState = "succeeded"
+)
+
+// Severity returns a sortable integer: higher = worse (for failure-first ordering).
+func (s RollupState) Severity() int {
+	switch s {
+	case RollupBroken:
+		return 5
+	case RollupFailed:
+		return 4
+	case RollupUnresolvable:
+		return 3
+	case RollupBlocked:
+		return 2
+	case RollupBuilding:
+		return 1
+	default:
+		return 0
+	}
+}
+
+type Scope string
+
+const (
+	ScopeCommon    Scope = "common"
+	ScopePPGCommon Scope = "ppgcommon"
+	ScopeVersion   Scope = "version"
+	ScopeContainer Scope = "container"
+	ScopeRelease   Scope = "release"
+)
+
+type Target struct {
+	Repo  string `json:"repo"`
+	Arch  string `json:"arch"`
+	State string `json:"state"`
+}
+
+type Trigger struct {
+	What string    `json:"what"`
+	Kind string    `json:"kind"`
+	At   time.Time `json:"at"`
+}
+
+type Package struct {
+	Project      string      `json:"project"`
+	Name         string      `json:"name"`
+	Scope        Scope       `json:"scope"`
+	RollupState  RollupState `json:"rollup_state"`
+	OKTargets    int         `json:"ok_targets"`
+	TotalTargets int         `json:"total_targets"`
+	Trigger      *Trigger    `json:"trigger,omitempty"`
+	Targets      []Target    `json:"targets"`
+	UpdatedAt    time.Time   `json:"updated_at"`
+}
+
+type EventType string
+
+const (
+	EventTriggered    EventType = "triggered"
+	EventStarted      EventType = "started"
+	EventSucceeded    EventType = "succeeded"
+	EventFailed       EventType = "failed"
+	EventUnresolvable EventType = "unresolvable"
+	EventBroken       EventType = "broken"
+	EventBlocked      EventType = "blocked"
+	EventPublished    EventType = "published"
+)
+
+type Event struct {
+	ID      string    `json:"id"`
+	Type    EventType `json:"type"`
+	Scope   Scope     `json:"scope"`
+	Project string    `json:"project"`
+	Package string    `json:"package"`
+	Repo    string    `json:"repo,omitempty"`
+	Arch    string    `json:"arch,omitempty"`
+	What    string    `json:"what"`
+	Why     string    `json:"why"`
+	URL     string    `json:"url"`
+	At      time.Time `json:"at"`
+}
