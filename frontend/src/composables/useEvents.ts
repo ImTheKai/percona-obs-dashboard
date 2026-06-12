@@ -12,7 +12,7 @@ export function useEvents(product: string, version: string) {
     try {
       let qs = ''
       if (opts.from && opts.to) {
-        qs = `?from=${opts.from}&to=${opts.to}`
+        qs = `?from=${encodeURIComponent(opts.from)}&to=${encodeURIComponent(opts.to)}`
       } else {
         qs = `?window=${opts.window ?? 1440}`
       }

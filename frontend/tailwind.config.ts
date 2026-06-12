@@ -26,7 +26,7 @@ export default {
         'text-primary': 'var(--text-primary)',
         'text-secondary': 'var(--text-secondary)',
         'text-muted': 'var(--text-muted)',
-        'border-color': 'var(--border)',
+        'border': 'var(--border)',
         'border-strong': 'var(--border-strong)',
       },
     },

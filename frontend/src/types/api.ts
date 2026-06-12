@@ -1,3 +1,7 @@
+export type BuildState = 'succeeded' | 'failed' | 'unresolvable' | 'broken' | 'blocked' | 'scheduled' | 'building'
+export type PackageScope = 'common' | 'ppgcommon' | 'version' | 'container' | 'release'
+export type EventType = 'triggered' | 'started' | 'succeeded' | 'failed' | 'unresolvable' | 'broken' | 'blocked' | 'published'
+
 export interface Trigger {
   what: string
   kind: string
@@ -7,14 +11,14 @@ export interface Trigger {
 export interface Target {
   repo: string
   arch: string
-  state: string // 'succeeded' | 'failed' | 'unresolvable' | 'broken' | 'blocked' | 'scheduled' | 'building'
+  state: BuildState
 }
 
 export interface Package {
   project: string
   name: string
-  scope: string // 'common' | 'ppgcommon' | 'version' | 'container' | 'release'
-  rollup_state: string // 'succeeded' | 'failed' | 'unresolvable' | 'broken' | 'blocked' | 'scheduled' | 'building'
+  scope: PackageScope
+  rollup_state: BuildState
   ok_targets: number
   total_targets: number
   trigger?: Trigger // optional
@@ -24,7 +28,7 @@ export interface Package {
 
 export interface Event {
   id: string
-  type: string // 'triggered' | 'started' | 'succeeded' | 'failed' | 'unresolvable' | 'broken' | 'blocked' | 'published'
+  type: EventType
   scope: string
   project: string
   package: string
