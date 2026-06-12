@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/oklog/ulid/v2"
+	hubpkg "github.com/percona/obs-dashboard/internal/hub"
 	"github.com/percona/obs-dashboard/internal/model"
 	"github.com/percona/obs-dashboard/internal/store"
 	amqp "github.com/rabbitmq/amqp091-go"
@@ -45,10 +46,29 @@ type mqMessage struct {
 type Consumer struct {
 	url string
 	db  *sql.DB
+	hub *hubpkg.Hub
 }
 
-func NewConsumer(url string, db *sql.DB) *Consumer {
-	return &Consumer{url: url, db: db}
+func NewConsumer(url string, db *sql.DB, h *hubpkg.Hub) *Consumer {
+	return &Consumer{url: url, db: db, hub: h}
+}
+
+// appendEvent writes evt to the store and notifies SSE clients.
+func (c *Consumer) appendEvent(evt *model.Event) {
+	if err := store.AppendEvent(c.db, evt); err != nil {
+		slog.Error("mq: append event", "err", err)
+		return
+	}
+	c.hub.Notify(hubpkg.NewEvent(evt))
+}
+
+// upsertPackage writes pkg to the store and notifies SSE clients.
+func (c *Consumer) upsertPackage(pkg *model.Package) error {
+	if err := store.UpsertPackageState(c.db, pkg); err != nil {
+		return err
+	}
+	c.hub.Notify(hubpkg.PackageUpdate(pkg))
+	return nil
 }
 
 // Run blocks until ctx is cancelled, reconnecting on errors with exponential back-off.
@@ -173,9 +193,7 @@ func (c *Consumer) handle(msg amqp.Delivery) {
 			URL:     fmt.Sprintf("https://build.opensuse.org/project/show/%s", m.Project),
 			At:      time.Now().UTC(),
 		}
-		if err := store.AppendEvent(c.db, evt); err != nil {
-			slog.Error("mq: append event", "err", err)
-		}
+		c.appendEvent(evt)
 
 	case key == repoBuildStartedKey:
 		evt := &model.Event{
@@ -190,9 +208,7 @@ func (c *Consumer) handle(msg amqp.Delivery) {
 			URL:     fmt.Sprintf("https://build.opensuse.org/project/show/%s", m.Project),
 			At:      time.Now().UTC(),
 		}
-		if err := store.AppendEvent(c.db, evt); err != nil {
-			slog.Error("mq: append event", "err", err)
-		}
+		c.appendEvent(evt)
 
 	case key == repoBuildFinishedKey:
 		evt := &model.Event{
@@ -207,9 +223,7 @@ func (c *Consumer) handle(msg amqp.Delivery) {
 			URL:     fmt.Sprintf("https://build.opensuse.org/project/show/%s", m.Project),
 			At:      time.Now().UTC(),
 		}
-		if err := store.AppendEvent(c.db, evt); err != nil {
-			slog.Error("mq: append event", "err", err)
-		}
+		c.appendEvent(evt)
 
 	case key == "opensuse.obs.project.create":
 		evt := &model.Event{
@@ -222,9 +236,7 @@ func (c *Consumer) handle(msg amqp.Delivery) {
 			URL:     fmt.Sprintf("https://build.opensuse.org/project/show/%s", m.Project),
 			At:      time.Now().UTC(),
 		}
-		if err := store.AppendEvent(c.db, evt); err != nil {
-			slog.Error("mq: append event", "err", err)
-		}
+		c.appendEvent(evt)
 
 	case key == "opensuse.obs.project.delete":
 		scope := inferScopeFromProject(m.Project)
@@ -241,9 +253,7 @@ func (c *Consumer) handle(msg amqp.Delivery) {
 			URL:     fmt.Sprintf("https://build.opensuse.org/project/show/%s", m.Project),
 			At:      time.Now().UTC(),
 		}
-		if err := store.AppendEvent(c.db, evt); err != nil {
-			slog.Error("mq: append event", "err", err)
-		}
+		c.appendEvent(evt)
 
 	case key == "opensuse.obs.package.version_change":
 		evt := &model.Event{
@@ -257,9 +267,7 @@ func (c *Consumer) handle(msg amqp.Delivery) {
 			URL:     fmt.Sprintf("https://build.opensuse.org/package/show/%s/%s", m.Project, m.Package),
 			At:      time.Now().UTC(),
 		}
-		if err := store.AppendEvent(c.db, evt); err != nil {
-			slog.Error("mq: append event", "err", err)
-		}
+		c.appendEvent(evt)
 
 	case isPackageBuildEvent(key):
 		scope := inferScopeFromProject(m.Project)
@@ -279,9 +287,7 @@ func (c *Consumer) handle(msg amqp.Delivery) {
 				URL:     fmt.Sprintf("https://build.opensuse.org/package/show/%s/%s", m.Project, m.Package),
 				At:      time.Now().UTC(),
 			}
-			if err := store.AppendEvent(c.db, evt); err != nil {
-				slog.Error("mq: append event", "err", err)
-			}
+			c.appendEvent(evt)
 			return
 		}
 
@@ -292,7 +298,7 @@ func (c *Consumer) handle(msg amqp.Delivery) {
 		// full target list so we don't overwrite other (repo, arch) entries.
 		pkg := c.mergePackageTarget(m, scope, rollup)
 
-		if err := store.UpsertPackageState(c.db, pkg); err != nil {
+		if err := c.upsertPackage(pkg); err != nil {
 			slog.Error("mq: upsert package", "err", err)
 			return
 		}
@@ -309,9 +315,7 @@ func (c *Consumer) handle(msg amqp.Delivery) {
 			URL:     fmt.Sprintf("https://build.opensuse.org/package/show/%s/%s", m.Project, m.Package),
 			At:      time.Now().UTC(),
 		}
-		if err := store.AppendEvent(c.db, evt); err != nil {
-			slog.Error("mq: append event", "err", err)
-		}
+		c.appendEvent(evt)
 	}
 }
 
