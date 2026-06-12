@@ -71,17 +71,17 @@ watch([windowMin, customFrom, customTo], () => refresh())
 </script>
 
 <template>
-  <div class="min-h-screen bg-bg-app flex flex-col">
-    <AppHeader :theme="theme" @toggle-theme="toggleTheme" />
-    <ContextBar
-      :version="version"
-      :updated-at="updatedAt"
-      :active-scopes="activeScopes"
-      @update:version="version = $event"
-      @toggle-scope="toggleScope"
-    />
-    <HealthHeader :packages="allPackages" />
-    <main class="flex-1 p-4 min-h-0">
+  <div class="min-h-screen bg-bg-app" style="padding: 24px 28px 60px;">
+    <div style="max-width: 1360px; margin: 0 auto; display: flex; flex-direction: column; gap: 16px;">
+      <AppHeader :theme="theme" @toggle-theme="toggleTheme" />
+      <ContextBar
+        :version="version"
+        :updated-at="updatedAt"
+        :active-scopes="activeScopes"
+        @update:version="version = $event"
+        @toggle-scope="toggleScope"
+      />
+      <HealthHeader :packages="allPackages" />
       <MainGrid
         :packages="filteredPackages"
         :events="events"
@@ -92,6 +92,6 @@ watch([windowMin, customFrom, customTo], () => refresh())
         @update:custom-from="customFrom = $event"
         @update:custom-to="customTo = $event"
       />
-    </main>
+    </div>
   </div>
 </template>

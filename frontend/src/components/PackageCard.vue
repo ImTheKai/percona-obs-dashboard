@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed } from 'vue'
-import type { Package, Target } from '../types/api'
+import type { Package } from '../types/api'
 
 const props = defineProps<{ pkg: Package }>()
 
@@ -24,12 +24,29 @@ const STATE_BG: Record<string, string> = {
   scheduled: 'var(--info-tint)',
 }
 
+const STATE_LABEL: Record<string, string> = {
+  succeeded: 'Succeeded', failed: 'Failed', unresolvable: 'Unresolvable',
+  broken: 'Broken', blocked: 'Blocked', building: 'Building', scheduled: 'Scheduled',
+}
+
+const SCOPE_LABEL: Record<string, string> = {
+  common: 'Common', ppgcommon: 'PPG Common', version: 'Version',
+  container: 'Container', release: 'Release',
+}
+
 const failingTargets = computed(() =>
   props.pkg.targets.filter(t => t.state !== 'succeeded')
 )
-
 const visibleFailing = computed(() => failingTargets.value.slice(0, 3))
 const hiddenFailingCount = computed(() => Math.max(0, failingTargets.value.length - 3))
+
+const rollupColor = computed(() => STATE_COLOR[props.pkg.rollup_state] ?? 'var(--text-muted)')
+const rollupBg = computed(() => STATE_BG[props.pkg.rollup_state] ?? 'var(--blocked-tint)')
+const obsUrl = computed(() => `https://build.opensuse.org/package/show/${props.pkg.project}/${props.pkg.name}`)
+
+function logUrl(repo: string, arch: string): string {
+  return `https://build.opensuse.org/package/live_build_log/${props.pkg.project}/${props.pkg.name}/${repo}/${arch}`
+}
 
 function timeAgo(iso: string): string {
   const diff = Date.now() - new Date(iso).getTime()
@@ -39,76 +56,73 @@ function timeAgo(iso: string): string {
   if (hours < 24) return `${hours}h ago`
   return `${Math.floor(hours / 24)}d ago`
 }
-
-// Group targets by repo for the grid
-const repos = computed(() => {
-  const map = new Map<string, Target[]>()
-  for (const t of props.pkg.targets) {
-    if (!map.has(t.repo)) map.set(t.repo, [])
-    map.get(t.repo)!.push(t)
-  }
-  return map
-})
-
-const rollupColor = computed(() => STATE_COLOR[props.pkg.rollup_state] ?? 'var(--text-muted)')
-const rollupBg = computed(() => STATE_BG[props.pkg.rollup_state] ?? 'var(--blocked-tint)')
 </script>
 
 <template>
-  <div class="bg-bg-card rounded-lg border border-border p-4 space-y-3">
-    <!-- Header: name + scope + rollup state -->
-    <div class="flex items-center gap-2 justify-between">
-      <div class="flex items-center gap-2 min-w-0">
-        <span class="font-semibold text-text-primary truncate">{{ pkg.name }}</span>
-        <span class="text-xs px-1.5 py-0.5 rounded text-text-muted bg-blocked-tint shrink-0">{{ pkg.scope }}</span>
-      </div>
-      <span
-        class="text-xs font-medium px-2 py-0.5 rounded-full shrink-0"
-        :style="{ color: rollupColor, backgroundColor: rollupBg }"
-      >{{ pkg.rollup_state }}</span>
+  <div :style="{
+    background: 'var(--bg-card)',
+    border: '1px solid var(--border)',
+    borderLeft: `4px solid ${rollupColor}`,
+    borderRadius: '12px',
+    padding: '15px',
+    display: 'flex',
+    flexDirection: 'column',
+    gap: '11px',
+  }">
+    <!-- Row 1: state pill + name + OBS link -->
+    <div style="display: flex; align-items: center; gap: 9px;">
+      <span :style="{
+        fontSize: '10.5px', fontWeight: '700', textTransform: 'uppercase',
+        letterSpacing: '0.04em', padding: '3px 9px', borderRadius: '6px',
+        color: rollupColor, background: rollupBg,
+      }">{{ STATE_LABEL[pkg.rollup_state] ?? pkg.rollup_state }}</span>
+      <code style="font-family: var(--font-mono); font-size: 13.5px; font-weight: 600; color: var(--text-primary); overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">{{ pkg.name }}</code>
+      <a :href="obsUrl" target="_blank" rel="noopener" style="margin-left: auto; font-size: 11.5px; font-weight: 700; color: var(--brand-purple); text-decoration: none; white-space: nowrap; flex-shrink: 0;">OBS ↗</a>
     </div>
 
-    <!-- Trigger line -->
-    <div v-if="pkg.trigger" class="text-xs text-text-secondary">
-      ↻ <span class="text-text-primary">{{ pkg.trigger.what }}</span>
-      <span class="text-text-muted ml-1">· {{ pkg.trigger.kind }} · {{ timeAgo(pkg.trigger.at) }}</span>
+    <!-- Row 2: scope tag + project path -->
+    <div style="display: flex; align-items: center; gap: 7px;">
+      <span style="font-size: 9.5px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; padding: 2px 7px; border-radius: 5px; background: var(--blocked-tint); color: var(--blocked);">{{ SCOPE_LABEL[pkg.scope] ?? pkg.scope }}</span>
+      <code style="font-family: var(--font-mono); font-size: 10.5px; color: var(--text-muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">{{ pkg.project }}</code>
     </div>
 
-    <!-- Target grid: repos × arches -->
-    <div class="space-y-1">
-      <div v-for="[repo, targets] in repos" :key="repo" class="flex items-center gap-1">
-        <span class="text-xs text-text-muted w-36 truncate shrink-0">{{ repo }}</span>
-        <div class="flex gap-1 flex-wrap">
-          <span
-            v-for="t in targets"
-            :key="`${t.repo}-${t.arch}`"
-            class="text-xs px-1.5 py-0.5 rounded font-mono"
-            :style="{ color: STATE_COLOR[t.state] ?? 'var(--text-muted)', backgroundColor: STATE_BG[t.state] ?? 'var(--blocked-tint)' }"
-            :title="`${t.arch}: ${t.state}`"
-          >{{ t.arch }}</span>
-        </div>
-      </div>
-    </div>
-
-    <!-- Failing targets list: first 3 + N more -->
-    <div v-if="failingTargets.length > 0" class="space-y-1">
-      <div
-        v-for="t in visibleFailing"
-        :key="`fail-${t.repo}-${t.arch}`"
-        class="text-xs flex items-center gap-1"
-      >
-        <span :style="{ color: STATE_COLOR[t.state] }">●</span>
-        <span class="text-text-secondary">{{ t.repo }}/{{ t.arch }}</span>
-        <span :style="{ color: STATE_COLOR[t.state] }">{{ t.state }}</span>
-      </div>
-      <div v-if="hiddenFailingCount > 0" class="text-xs text-text-muted">
-        +{{ hiddenFailingCount }} more
+    <!-- Row 3: trigger box -->
+    <div v-if="pkg.trigger" style="display: flex; align-items: flex-start; gap: 8px; background: var(--bg-card-2); border: 1px solid var(--border); border-radius: 9px; padding: 9px 11px;">
+      <span style="color: var(--warn); font-weight: 700; font-size: 13px; line-height: 1.3; flex-shrink: 0;">↻</span>
+      <div style="display: flex; flex-direction: column; gap: 1px; min-width: 0;">
+        <span style="font-size: 12px; color: var(--text-secondary);">Triggered by <strong style="color: var(--text-primary); font-weight: 700;">{{ pkg.trigger.what }}</strong></span>
+        <span style="font-size: 10.5px; color: var(--text-muted);">{{ pkg.trigger.kind }} · {{ timeAgo(pkg.trigger.at) }}</span>
       </div>
     </div>
 
-    <!-- Ok count -->
-    <div class="text-xs text-text-muted">
-      {{ pkg.ok_targets }}/{{ pkg.total_targets }} targets ok
+    <!-- Row 4: failing targets -->
+    <div v-if="failingTargets.length > 0" style="display: flex; flex-direction: column; gap: 6px;">
+      <span style="font-size: 10.5px; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.05em;">
+        {{ failingTargets.length }} failing target{{ failingTargets.length !== 1 ? 's' : '' }}
+      </span>
+      <div style="display: flex; flex-direction: column; gap: 5px;">
+        <a
+          v-for="t in visibleFailing"
+          :key="`${t.repo}-${t.arch}`"
+          :href="logUrl(t.repo, t.arch)"
+          target="_blank"
+          rel="noopener"
+          :style="{
+            display: 'flex', alignItems: 'center', gap: '9px',
+            textDecoration: 'none', padding: '5px 9px', borderRadius: '7px',
+            background: STATE_BG[t.state] ?? 'var(--blocked-tint)',
+          }"
+        >
+          <span :style="{ width: '8px', height: '8px', borderRadius: '2px', background: STATE_COLOR[t.state] ?? 'var(--blocked)', flexShrink: '0' }"></span>
+          <code style="font-family: var(--font-mono); font-size: 11.5px; color: var(--text-primary); flex-shrink: 0;">{{ t.repo }}/{{ t.arch }}</code>
+          <span :style="{ fontSize: '11px', color: STATE_COLOR[t.state] ?? 'var(--text-secondary)', marginLeft: 'auto', fontWeight: '600', flexShrink: '0' }">{{ t.state }}</span>
+          <span style="font-size: 10.5px; color: var(--brand-purple); font-weight: 700; flex-shrink: 0;">log ↗</span>
+        </a>
+        <span v-if="hiddenFailingCount > 0" style="font-size: 11px; color: var(--text-muted); padding: 2px 9px;">+{{ hiddenFailingCount }} more</span>
+      </div>
     </div>
+
+    <!-- Row 5: ok targets count -->
+    <div style="font-size: 11px; color: var(--text-muted);">{{ pkg.ok_targets }}/{{ pkg.total_targets }} targets ok</div>
   </div>
 </template>

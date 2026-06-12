@@ -8,7 +8,8 @@ export default {
       colors: {
         'bg-app': 'var(--bg-app)',
         'bg-card': 'var(--bg-card)',
-        'bg-card-hover': 'var(--bg-card-hover)',
+        'bg-card-2': 'var(--bg-card-2)',
+        'bg-muted': 'var(--bg-muted)',
         'brand-purple': 'var(--brand-purple)',
         'brand-purple-tint': 'var(--brand-purple-tint)',
         'ok': 'var(--ok)',

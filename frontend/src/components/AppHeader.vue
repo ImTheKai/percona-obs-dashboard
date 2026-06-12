@@ -4,17 +4,20 @@ const emit = defineEmits<{ 'toggle-theme': [] }>()
 </script>
 
 <template>
-  <header class="flex items-center justify-between px-6 py-3 bg-bg-card border-b border-border">
-    <div class="flex items-center gap-3">
-      <div class="w-8 h-8 rounded-full bg-brand-purple flex items-center justify-center text-white font-bold text-sm">P</div>
-      <span class="font-semibold text-text-primary text-lg">PPG Build Board</span>
+  <header style="display: flex; align-items: center; justify-content: space-between; gap: 20px;">
+    <div style="display: flex; align-items: center; gap: 12px;">
+      <div style="width: 34px; height: 34px; border-radius: 9px; background: var(--brand-purple); display: flex; align-items: center; justify-content: center; color: #fff; font-weight: 800; font-size: 17px; font-family: 'Roboto Condensed', 'Roboto', sans-serif;">P</div>
+      <div style="display: flex; flex-direction: column; gap: 1px;">
+        <h1 style="margin: 0; font-size: 21px; font-weight: 700; letter-spacing: -0.01em; color: var(--text-primary);">PPG Build Board</h1>
+        <span style="font-size: 12.5px; color: var(--text-muted);">Failure-first build monitor across every subproject of a product</span>
+      </div>
     </div>
     <button
       @click="emit('toggle-theme')"
-      class="w-8 h-8 rounded flex items-center justify-center text-text-secondary hover:bg-brand-purple-tint"
-      :title="theme === 'dark' ? 'Switch to light' : 'Switch to dark'"
+      style="flex-shrink: 0; display: inline-flex; align-items: center; gap: 8px; padding: 8px 14px; border-radius: 10px; border: 1px solid var(--border); background: var(--bg-card); color: var(--text-secondary); font-family: inherit; font-size: 13px; font-weight: 600; cursor: pointer;"
     >
-      {{ theme === 'dark' ? '☀' : '🌙' }}
+      <span style="width: 8px; height: 8px; border-radius: 99px; background: var(--brand-purple);"></span>
+      {{ theme === 'dark' ? 'Dark' : 'Light' }} mode
     </button>
   </header>
 </template>

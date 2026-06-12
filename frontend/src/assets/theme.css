@@ -6,7 +6,8 @@
 :root {
   --bg-app: #F6F4F0;
   --bg-card: #FFFFFF;
-  --bg-card-hover: #F8F7F5;
+  --bg-card-2: #FBFAF7;
+  --bg-muted: #ECE8DF;
   --brand-purple: #6E3FF3;
   --brand-purple-tint: #EDE8FD;
   --ok: #1F9D55;
@@ -19,20 +20,24 @@
   --broken-tint: #FFE4EA;
   --blocked: #8A8594;
   --blocked-tint: #F0EFF4;
-  --info: #3B82F6;
+  --info: #2A78D4;
   --info-tint: #EFF6FF;
-  --text-primary: #1A1625;
-  --text-secondary: #6B6680;
-  --text-muted: #9C97A8;
-  --border: #E8E5F0;
-  --border-strong: #D0CCE0;
+  --text-primary: #14111C;
+  --text-secondary: #4A4655;
+  --text-muted: #7A7585;
+  --border: rgba(20, 17, 28, 0.08);
+  --border-strong: rgba(20, 17, 28, 0.14);
+  --tech-postgres: #005ED6;
+  --tint-postgres: rgba(0, 94, 214, 0.10);
+  --font-mono: "JetBrains Mono", ui-monospace, Menlo, Consolas, monospace;
 }
 
 /* ── Dark theme ── */
 [data-theme="dark"] {
   --bg-app: #0B0912;
   --bg-card: #181426;
-  --bg-card-hover: #201B32;
+  --bg-card-2: #13101F;
+  --bg-muted: #1A1626;
   --brand-purple: #8B65F5;
   --brand-purple-tint: #2A1F4A;
   --ok: #42C97E;
@@ -50,8 +55,10 @@
   --text-primary: #EDE8FD;
   --text-secondary: #9C97A8;
   --text-muted: #6B6680;
-  --border: #2A2440;
-  --border-strong: #3A3354;
+  --border: rgba(255, 255, 255, 0.08);
+  --border-strong: rgba(255, 255, 255, 0.14);
+  --tech-postgres: #4A9EFF;
+  --tint-postgres: rgba(74, 158, 255, 0.15);
 }
 
 /* ── Base ── */
@@ -61,4 +68,5 @@ body {
   font-family: 'Roboto', -apple-system, 'Segoe UI', Arial, sans-serif;
   margin: 0;
   padding: 0;
+  -webkit-font-smoothing: antialiased;
 }

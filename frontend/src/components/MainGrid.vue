@@ -19,10 +19,8 @@ const emit = defineEmits<{
 </script>
 
 <template>
-  <div class="grid grid-cols-[1fr_440px] gap-4 h-full min-h-0">
-    <div class="overflow-y-auto">
-      <FailureBoard :packages="packages" />
-    </div>
+  <div style="display: grid; grid-template-columns: minmax(0,1fr) 440px; gap: 18px; align-items: start;">
+    <FailureBoard :packages="packages" />
     <EventLog
       :events="events"
       :window-min="windowMin"

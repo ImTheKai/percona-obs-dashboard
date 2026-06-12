@@ -14,28 +14,45 @@ const GLYPH_COLOR: Record<EventType, string> = {
   published: 'var(--info)', triggered: 'var(--brand-purple)', started: 'var(--info)',
 }
 
+const SCOPE_STYLE: Record<string, string> = {
+  version: `background: var(--brand-purple-tint); color: var(--brand-purple);`,
+  container: `background: var(--info-tint); color: var(--info);`,
+  release: `background: var(--ok-tint); color: var(--ok);`,
+  common: `background: var(--blocked-tint); color: var(--blocked);`,
+  ppgcommon: `background: var(--blocked-tint); color: var(--blocked);`,
+}
+
 function timeStr(iso: string): string {
-  return new Date(iso).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+  const d = new Date(iso)
+  const diff = Date.now() - d.getTime()
+  const minutes = Math.floor(diff / 60000)
+  if (minutes < 1) return 'just now'
+  if (minutes < 60) return `${minutes}m ago`
+  const hours = Math.floor(minutes / 60)
+  if (hours < 24) return `${hours}h ago`
+  return d.toLocaleDateString()
 }
 </script>
 
 <template>
-  <div class="flex gap-2 py-2 border-b border-border last:border-0">
-    <div class="w-5 h-5 rounded-full flex items-center justify-center text-xs shrink-0 mt-0.5"
-         :style="{ color: GLYPH_COLOR[event.type], backgroundColor: GLYPH_COLOR[event.type] + '22' }">
-      {{ GLYPH[event.type] }}
+  <a :href="event.url" target="_blank" rel="noopener" style="display: flex; gap: 11px; padding: 9px 14px; text-decoration: none; border-radius: 9px;">
+    <div style="display: flex; flex-direction: column; align-items: center; gap: 0; flex-shrink: 0;">
+      <span
+        style="width: 24px; height: 24px; border-radius: 7px; display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 800;"
+        :style="{ color: GLYPH_COLOR[event.type], background: GLYPH_COLOR[event.type] + '22' }"
+      >{{ GLYPH[event.type] }}</span>
+      <span style="flex: 1; width: 2px; background: var(--border); margin-top: 3px; border-radius: 2px;"></span>
     </div>
-    <div class="min-w-0 flex-1">
-      <div class="flex items-center gap-1.5 flex-wrap">
-        <span class="text-xs text-text-muted font-mono">{{ event.scope }}</span>
-        <span class="text-sm font-medium text-text-primary truncate">{{ event.what }}</span>
+    <div style="display: flex; flex-direction: column; gap: 3px; min-width: 0; padding-bottom: 6px;">
+      <div style="display: flex; align-items: center; gap: 8px;">
+        <span style="font-size: 12.5px; font-weight: 700; color: var(--text-primary); overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">{{ event.what }}</span>
+        <span style="margin-left: auto; font-size: 10.5px; color: var(--text-muted); font-family: var(--font-mono); white-space: nowrap; flex-shrink: 0;">{{ timeStr(event.at) }}</span>
       </div>
-      <div class="text-xs text-text-secondary mt-0.5">{{ event.why }}</div>
-      <div class="flex items-center gap-2 mt-1">
-        <span v-if="event.repo" class="text-xs text-text-muted">{{ event.repo }}/{{ event.arch }}</span>
-        <a :href="event.url" target="_blank" class="text-xs text-brand-purple hover:underline ml-auto">↗</a>
-        <span class="text-xs text-text-muted">{{ timeStr(event.at) }}</span>
+      <span style="font-size: 11.5px; color: var(--text-secondary); line-height: 1.45;">{{ event.why }}</span>
+      <div style="display: flex; align-items: center; gap: 6px; flex-wrap: wrap; margin-top: 2px;">
+        <span :style="`font-size: 9px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em; padding: 2px 6px; border-radius: 5px; ${SCOPE_STYLE[event.scope] ?? 'background: var(--blocked-tint); color: var(--blocked);'}`">{{ event.scope }}</span>
+        <code v-if="event.repo" style="font-family: var(--font-mono); font-size: 10px; color: var(--text-muted);">{{ event.repo }}/{{ event.arch }}</code>
       </div>
     </div>
-  </div>
+  </a>
 </template>
