@@ -46,7 +46,7 @@ func Load() (*Config, error) {
 
 	v.SetDefault("obs.base_url", "https://api.opensuse.org")
 	v.SetDefault("mq.url", "amqps://opensuse:opensuse@rabbit.opensuse.org:5671/")
-	v.SetDefault("poller.interval", "5m")
+	v.SetDefault("poller.interval", "2m")
 	v.SetDefault("store.db_path", "/data/obsboard.db")
 	v.SetDefault("store.event_retention", "7d")
 	v.SetDefault("server.http_port", 8080)
