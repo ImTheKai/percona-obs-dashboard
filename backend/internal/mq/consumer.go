@@ -6,7 +6,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"log/slog"
-	"math"
 	"strings"
 	"time"
 
@@ -57,7 +56,10 @@ func (c *Consumer) Run(ctx context.Context) {
 				return
 			case <-time.After(backoff):
 			}
-			next := time.Duration(math.Min(float64(backoff*2), float64(maxBackoff)))
+			next := backoff * 2
+			if next > maxBackoff {
+				next = maxBackoff
+			}
 			backoff = next
 		} else {
 			backoff = time.Second
@@ -152,24 +154,36 @@ func (c *Consumer) handle(msg amqp.Delivery) {
 		}
 
 	case isPackageBuildEvent(key):
+		scope := inferScopeFromProject(m.Project)
+
+		// build_unchanged: state is unknown — only append the event, skip upsert.
+		if key == "opensuse.obs.package.build_unchanged" {
+			evt := &model.Event{
+				ID:      "evt_" + ulid.Make().String(),
+				Type:    model.EventSucceeded,
+				Scope:   scope,
+				Project: m.Project,
+				Package: m.Package,
+				Repo:    m.Repo,
+				Arch:    m.Arch,
+				What:    fmt.Sprintf("%s build unchanged on %s/%s", m.Package, m.Repo, m.Arch),
+				Why:     m.Reason,
+				URL:     fmt.Sprintf("https://build.opensuse.org/package/show/%s/%s", m.Project, m.Package),
+				At:      time.Now().UTC(),
+			}
+			if err := store.AppendEvent(c.db, evt); err != nil {
+				slog.Error("mq: append event", "err", err)
+			}
+			return
+		}
+
 		rollup := mqStateToRollup(key)
 		evtType := rollupToEventType(rollup)
-		scope := inferScopeFromProject(m.Project)
-		pkg := &model.Package{
-			Project:      m.Project,
-			Name:         m.Package,
-			Scope:        scope,
-			RollupState:  rollup,
-			OKTargets:    0,
-			TotalTargets: 1,
-			Targets: []model.Target{
-				{Repo: m.Repo, Arch: m.Arch, State: string(rollup)},
-			},
-			UpdatedAt: time.Now().UTC(),
-		}
-		if rollup == model.RollupSucceeded {
-			pkg.OKTargets = 1
-		}
+
+		// Read current package from store and merge the updated target into the
+		// full target list so we don't overwrite other (repo, arch) entries.
+		pkg := c.mergePackageTarget(m, scope, rollup)
+
 		if err := store.UpsertPackageState(c.db, pkg); err != nil {
 			slog.Error("mq: upsert package", "err", err)
 			return
@@ -190,6 +204,63 @@ func (c *Consumer) handle(msg amqp.Delivery) {
 		if err := store.AppendEvent(c.db, evt); err != nil {
 			slog.Error("mq: append event", "err", err)
 		}
+	}
+}
+
+// mergePackageTarget reads the existing package from the store (if any), updates
+// the (repo, arch) target with the new state, then recalculates OKTargets,
+// TotalTargets, and RollupState from the full merged target list.
+func (c *Consumer) mergePackageTarget(m mqMessage, scope model.Scope, newState model.RollupState) *model.Package {
+	targets := []model.Target{{Repo: m.Repo, Arch: m.Arch, State: string(newState)}}
+
+	existing, err := store.QueryPackages(c.db, m.Project)
+	if err != nil {
+		slog.Warn("mq: could not read existing package, creating fresh", "err", err)
+	} else {
+		for _, p := range existing {
+			if p.Name == m.Package {
+				// Found existing package — merge the updated target.
+				merged := make([]model.Target, 0, len(p.Targets))
+				found := false
+				for _, t := range p.Targets {
+					if t.Repo == m.Repo && t.Arch == m.Arch {
+						merged = append(merged, model.Target{Repo: m.Repo, Arch: m.Arch, State: string(newState)})
+						found = true
+					} else {
+						merged = append(merged, t)
+					}
+				}
+				if !found {
+					merged = append(merged, model.Target{Repo: m.Repo, Arch: m.Arch, State: string(newState)})
+				}
+				targets = merged
+				break
+			}
+		}
+	}
+
+	// Recalculate rollup and counts from the full target list.
+	worst := model.RollupSucceeded
+	okCount := 0
+	for _, t := range targets {
+		s := model.RollupState(t.State)
+		if s.Severity() > worst.Severity() {
+			worst = s
+		}
+		if s == model.RollupSucceeded {
+			okCount++
+		}
+	}
+
+	return &model.Package{
+		Project:      m.Project,
+		Name:         m.Package,
+		Scope:        scope,
+		RollupState:  worst,
+		OKTargets:    okCount,
+		TotalTargets: len(targets),
+		Targets:      targets,
+		UpdatedAt:    time.Now().UTC(),
 	}
 }
 
