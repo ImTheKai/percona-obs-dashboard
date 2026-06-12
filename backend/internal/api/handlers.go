@@ -15,8 +15,10 @@ import (
 func packagesHandler(db *sql.DB) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		product := chi.URLParam(r, "product")
-		version := chi.URLParam(r, "version")
-		prefix := "isv:percona:" + product + ":" + version
+		// Use the product-level prefix so common packages (isv:percona:ppg:common)
+		// are included alongside version-specific ones. Version filtering is done
+		// client-side so the version tabs actually work.
+		prefix := "isv:percona:" + product
 
 		pkgs, err := store.QueryPackages(db, prefix)
 		if err != nil {
@@ -42,8 +44,7 @@ func packagesHandler(db *sql.DB) http.HandlerFunc {
 func eventsHandler(db *sql.DB) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		product := chi.URLParam(r, "product")
-		version := chi.URLParam(r, "version")
-		prefix := "isv:percona:" + product + ":" + version
+		prefix := "isv:percona:" + product
 
 		now := time.Now().UTC()
 		var from, to time.Time

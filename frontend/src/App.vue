@@ -40,8 +40,8 @@ const customFrom = ref<string | null>(null)
 const customTo = ref<string | null>(null)
 
 // Data fetching
-const { data: allPackages, refresh: refreshPackages, filterByScope } = usePackages('ppg', version.value)
-const { data: events, refresh: refreshEvents } = useEvents('ppg', version.value)
+const { data: allPackages, refresh: refreshPackages, filterByScope } = usePackages('ppg', version)
+const { data: events, refresh: refreshEvents } = useEvents('ppg', version)
 
 const filteredPackages = computed(() => filterByScope(activeScopes.value))
 const updatedAt = ref<string | null>(null)

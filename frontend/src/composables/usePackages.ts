@@ -1,4 +1,5 @@
-import { ref, computed } from 'vue'
+import { ref, computed, toValue } from 'vue'
+import type { MaybeRef } from 'vue'
 import type { Package } from '../types/api'
 
 const SEVERITY: Record<string, number> = {
@@ -11,16 +12,30 @@ const SEVERITY: Record<string, number> = {
   succeeded: 0,
 }
 
-export function usePackages(product: string, version: string) {
+// Known PPG version segments — used to exclude packages from other versions.
+const KNOWN_VERSIONS = ['16', '17', '18']
+
+// A package belongs to the selected version if its project path does not contain
+// a segment that is a *different* version number. Common packages like
+// isv:percona:ppg:common or isv:percona:common have no version segment and are
+// always included.
+function matchesVersion(pkg: Package, version: string): boolean {
+  const segments = pkg.project.split(':')
+  return !KNOWN_VERSIONS.filter(v => v !== version).some(v => segments.includes(v))
+}
+
+export function usePackages(product: MaybeRef<string>, version: MaybeRef<string>) {
   const data = ref<Package[]>([])
   const loading = ref(false)
   const error = ref<string | null>(null)
 
   async function refresh() {
+    const p = toValue(product)
+    const v = toValue(version)
     loading.value = true
     error.value = null
     try {
-      const res = await fetch(`/api/products/${product}/${version}/packages`)
+      const res = await fetch(`/api/products/${p}/${v}/packages`)
       if (!res.ok) throw new Error(`HTTP ${res.status}`)
       data.value = await res.json()
     } catch (e) {
@@ -30,11 +45,12 @@ export function usePackages(product: string, version: string) {
     }
   }
 
-  const sorted = computed(() =>
-    [...data.value].sort((a, b) =>
-      (SEVERITY[b.rollup_state] ?? 0) - (SEVERITY[a.rollup_state] ?? 0)
-    )
-  )
+  const sorted = computed(() => {
+    const ver = toValue(version)
+    return [...data.value]
+      .filter(pkg => matchesVersion(pkg, ver))
+      .sort((a, b) => (SEVERITY[b.rollup_state] ?? 0) - (SEVERITY[a.rollup_state] ?? 0))
+  })
 
   function filterByScope(scopes: string[]) {
     if (scopes.length === 0) return sorted.value
