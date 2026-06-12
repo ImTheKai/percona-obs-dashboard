@@ -1,5 +1,5 @@
 import { ref, computed, toValue } from 'vue'
-import type { MaybeRef } from 'vue'
+import type { MaybeRef, ComputedRef } from 'vue'
 import type { Package } from '../types/api'
 
 const SEVERITY: Record<string, number> = {
@@ -8,34 +8,41 @@ const SEVERITY: Record<string, number> = {
   failed: 3,
   blocked: 2,
   building: 1,
+  finished: 1,
   scheduled: 1,
   succeeded: 0,
 }
 
-// Known PPG version segments — used to exclude packages from other versions.
-const KNOWN_VERSIONS = ['16', '17', '18']
-
-// A package belongs to the selected version if its project path does not contain
-// a segment that is a *different* version number. Common packages like
-// isv:percona:ppg:common or isv:percona:common have no version segment and are
-// always included.
-function matchesVersion(pkg: Package, version: string): boolean {
-  const segments = pkg.project.split(':')
-  return !KNOWN_VERSIONS.filter(v => v !== version).some(v => segments.includes(v))
+// matchesVersion returns true if pkg belongs to the selected version.
+// A package is a "common" package (always shown) when the segment at prefixDepth
+// in its project path is absent or not a known version number.
+function matchesVersion(
+  pkg: Package,
+  version: string,
+  prefixDepth: number,
+  knownVersions: Set<string>,
+): boolean {
+  const seg = pkg.project.split(':')[prefixDepth]
+  if (!seg || !knownVersions.has(seg)) return true
+  return seg === version
 }
 
-export function usePackages(product: MaybeRef<string>, version: MaybeRef<string>) {
+export function usePackages(
+  apiBase: MaybeRef<string>,
+  version: MaybeRef<string>,
+  prefixDepth: MaybeRef<number>,
+) {
   const data = ref<Package[]>([])
   const loading = ref(false)
   const error = ref<string | null>(null)
 
   async function refresh() {
-    const p = toValue(product)
+    const base = toValue(apiBase)
     const v = toValue(version)
     loading.value = true
     error.value = null
     try {
-      const res = await fetch(`/api/products/${p}/${v}/packages`)
+      const res = await fetch(`${base}/${v}/packages`)
       if (!res.ok) throw new Error(`HTTP ${res.status}`)
       data.value = await res.json()
     } catch (e) {
@@ -45,10 +52,25 @@ export function usePackages(product: MaybeRef<string>, version: MaybeRef<string>
     }
   }
 
+  // availableVersions: unique version segments found at prefixDepth in project paths,
+  // sorted descending (newest first). Purely numeric segments are versions; anything
+  // else (e.g. "common", "containers") is not.
+  const availableVersions: ComputedRef<string[]> = computed(() => {
+    const depth = toValue(prefixDepth)
+    const found = new Set<string>()
+    for (const pkg of data.value) {
+      const seg = pkg.project.split(':')[depth]
+      if (seg && /^\d+$/.test(seg)) found.add(seg)
+    }
+    return [...found].sort((a, b) => parseInt(b) - parseInt(a))
+  })
+
   const sorted = computed(() => {
     const ver = toValue(version)
+    const depth = toValue(prefixDepth)
+    const knownVersions = new Set(availableVersions.value)
     return [...data.value]
-      .filter(pkg => matchesVersion(pkg, ver))
+      .filter(pkg => matchesVersion(pkg, ver, depth, knownVersions))
       .sort((a, b) => (SEVERITY[b.rollup_state] ?? 0) - (SEVERITY[a.rollup_state] ?? 0))
   })
 
@@ -57,5 +79,5 @@ export function usePackages(product: MaybeRef<string>, version: MaybeRef<string>
     return sorted.value.filter(p => scopes.includes(p.scope))
   }
 
-  return { data: sorted, loading, error, refresh, filterByScope }
+  return { data: sorted, availableVersions, loading, error, refresh, filterByScope }
 }

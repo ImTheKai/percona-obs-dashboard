@@ -2,13 +2,13 @@ import { ref, toValue } from 'vue'
 import type { MaybeRef } from 'vue'
 import type { Event } from '../types/api'
 
-export function useEvents(product: MaybeRef<string>, version: MaybeRef<string>) {
+export function useEvents(apiBase: MaybeRef<string>, version: MaybeRef<string>) {
   const data = ref<Event[]>([])
   const loading = ref(false)
   const error = ref<string | null>(null)
 
   async function refresh(opts: { window?: number; from?: string; to?: string } = {}) {
-    const p = toValue(product)
+    const base = toValue(apiBase)
     const v = toValue(version)
     loading.value = true
     error.value = null
@@ -19,7 +19,7 @@ export function useEvents(product: MaybeRef<string>, version: MaybeRef<string>) 
       } else {
         qs = `?window=${opts.window ?? 1440}`
       }
-      const res = await fetch(`/api/products/${p}/${v}/events${qs}`)
+      const res = await fetch(`${base}/${v}/events${qs}`)
       if (!res.ok) throw new Error(`HTTP ${res.status}`)
       data.value = await res.json()
     } catch (e) {
