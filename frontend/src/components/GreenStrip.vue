@@ -50,7 +50,7 @@ function packageUrl(project: string, name: string): string {
       <div style="display: flex; gap: 7px; flex-wrap: wrap;">
         <a
           v-for="pkg in group.pkgs"
-          :key="pkg.name"
+          :key="`${pkg.name}/${pkg.scope}`"
           :href="packageUrl(group.project, pkg.name)"
           target="_blank"
           rel="noopener"
