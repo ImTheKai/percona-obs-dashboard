@@ -126,7 +126,18 @@ func InferScope(project string) model.Scope {
 	}
 }
 
+// skipState returns true for OBS states that represent a build being intentionally
+// off and should not contribute to the rollup or target counts.
+func skipState(state string) bool {
+	switch state {
+	case "disabled", "excluded", "locked":
+		return true
+	}
+	return false
+}
+
 // buildPackage aggregates target states into a Package with worst-case rollup.
+// Targets with state disabled/excluded/locked are silently dropped.
 func buildPackage(project, name string, scope model.Scope, targets []PackageBuildState) *model.Package {
 	// Precedence from worst to best
 	stateOrder := []model.RollupState{
@@ -134,7 +145,12 @@ func buildPackage(project, name string, scope model.Scope, targets []PackageBuil
 		model.RollupBlocked, model.RollupBuilding, model.RollupSucceeded,
 	}
 	stateSet := map[string]bool{}
+	var active []PackageBuildState
 	for _, t := range targets {
+		if skipState(t.State) {
+			continue
+		}
+		active = append(active, t)
 		stateSet[t.State] = true
 	}
 
@@ -147,8 +163,8 @@ func buildPackage(project, name string, scope model.Scope, targets []PackageBuil
 	}
 
 	ok := 0
-	mTargets := make([]model.Target, len(targets))
-	for i, t := range targets {
+	mTargets := make([]model.Target, len(active))
+	for i, t := range active {
 		mTargets[i] = model.Target{Repo: t.Repo, Arch: t.Arch, State: t.State}
 		if t.State == "succeeded" {
 			ok++
@@ -161,7 +177,7 @@ func buildPackage(project, name string, scope model.Scope, targets []PackageBuil
 		Scope:        scope,
 		RollupState:  rollup,
 		OKTargets:    ok,
-		TotalTargets: len(targets),
+		TotalTargets: len(active),
 		Targets:      mTargets,
 		UpdatedAt:    time.Now().UTC(),
 	}

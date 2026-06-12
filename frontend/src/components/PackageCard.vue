@@ -1,8 +1,10 @@
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, ref } from 'vue'
 import type { Package } from '../types/api'
 
 const props = defineProps<{ pkg: Package }>()
+
+const SKIP_STATES = new Set(['disabled', 'excluded', 'locked'])
 
 const STATE_COLOR: Record<string, string> = {
   succeeded: 'var(--ok)',
@@ -34,11 +36,17 @@ const SCOPE_LABEL: Record<string, string> = {
   container: 'Container', release: 'Release',
 }
 
+const INITIAL_VISIBLE = 3
+
+const showAll = ref(false)
+
 const failingTargets = computed(() =>
-  props.pkg.targets.filter(t => t.state !== 'succeeded')
+  props.pkg.targets.filter(t => !SKIP_STATES.has(t.state) && t.state !== 'succeeded')
 )
-const visibleFailing = computed(() => failingTargets.value.slice(0, 3))
-const hiddenFailingCount = computed(() => Math.max(0, failingTargets.value.length - 3))
+const visibleFailing = computed(() =>
+  showAll.value ? failingTargets.value : failingTargets.value.slice(0, INITIAL_VISIBLE)
+)
+const hiddenCount = computed(() => Math.max(0, failingTargets.value.length - INITIAL_VISIBLE))
 
 const rollupColor = computed(() => STATE_COLOR[props.pkg.rollup_state] ?? 'var(--text-muted)')
 const rollupBg = computed(() => STATE_BG[props.pkg.rollup_state] ?? 'var(--blocked-tint)')
@@ -118,7 +126,16 @@ function timeAgo(iso: string): string {
           <span :style="{ fontSize: '11px', color: STATE_COLOR[t.state] ?? 'var(--text-secondary)', marginLeft: 'auto', fontWeight: '600', flexShrink: '0' }">{{ t.state }}</span>
           <span style="font-size: 10.5px; color: var(--brand-purple); font-weight: 700; flex-shrink: 0;">log ↗</span>
         </a>
-        <span v-if="hiddenFailingCount > 0" style="font-size: 11px; color: var(--text-muted); padding: 2px 9px;">+{{ hiddenFailingCount }} more</span>
+        <button
+          v-if="!showAll && hiddenCount > 0"
+          @click="showAll = true"
+          style="font-size: 11px; color: var(--brand-purple); font-weight: 600; padding: 4px 9px; border: none; background: transparent; cursor: pointer; text-align: left; font-family: inherit;"
+        >+ {{ hiddenCount }} more</button>
+        <button
+          v-if="showAll && hiddenCount > 0"
+          @click="showAll = false"
+          style="font-size: 11px; color: var(--text-muted); font-weight: 600; padding: 4px 9px; border: none; background: transparent; cursor: pointer; text-align: left; font-family: inherit;"
+        >Show less</button>
       </div>
     </div>
 
