@@ -23,6 +23,7 @@ func (h *Hub) Unregister(ch chan<- []byte) {
 }
 
 // Notify sends payload to every registered client.
+// Callers must not retain or modify payload after this call returns.
 // If a client's channel buffer is full the message is dropped for that
 // client — the non-blocking select prevents Notify from stalling callers.
 func (h *Hub) Notify(payload []byte) {

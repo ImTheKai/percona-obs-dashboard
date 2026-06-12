@@ -13,6 +13,7 @@ type Msg struct {
 }
 
 // PackageUpdate serialises a package delta for the SSE stream.
+// json.Marshal errors are ignored — model.Package contains no un-marshalable fields.
 func PackageUpdate(pkg *model.Package) []byte {
 	d, _ := json.Marshal(pkg)
 	out, _ := json.Marshal(Msg{Type: "package_update", Data: d})
@@ -20,6 +21,7 @@ func PackageUpdate(pkg *model.Package) []byte {
 }
 
 // NewEvent serialises an event delta for the SSE stream.
+// json.Marshal errors are ignored — model.Event contains no un-marshalable fields.
 func NewEvent(evt *model.Event) []byte {
 	d, _ := json.Marshal(evt)
 	out, _ := json.Marshal(Msg{Type: "new_event", Data: d})
