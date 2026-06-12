@@ -6,22 +6,22 @@ defineProps<{ groups: PRGroup[] }>()
 const STATE_COLOR: Record<string, string> = {
   succeeded: 'var(--ok)',
   failed: 'var(--fail)',
-  unresolvable: 'var(--warn)',
+  unresolvable: 'var(--brand-purple)',
   broken: 'var(--broken)',
   blocked: 'var(--blocked)',
   building: 'var(--info)',
-  finished: 'var(--brand-purple)',
+  finished: 'var(--warn)',
   scheduled: 'var(--info)',
 }
 
 const STATE_BG: Record<string, string> = {
   succeeded: 'var(--ok-tint)',
   failed: 'var(--fail-tint)',
-  unresolvable: 'var(--warn-tint)',
+  unresolvable: 'var(--brand-purple-tint)',
   broken: 'var(--broken-tint)',
   blocked: 'var(--blocked-tint)',
   building: 'var(--info-tint)',
-  finished: 'var(--brand-purple-tint)',
+  finished: 'var(--warn-tint)',
   scheduled: 'var(--info-tint)',
 }
 
