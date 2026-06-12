@@ -10,7 +10,11 @@ const (
 	RollupUnresolvable RollupState = "unresolvable"
 	RollupBlocked      RollupState = "blocked"
 	RollupBuilding     RollupState = "building"
-	RollupSucceeded    RollupState = "succeeded"
+	// RollupFinished means the build worker finished but the scheduler has not yet
+	// accepted the result. It is a transient state between building and succeeded/failed.
+	RollupFinished  RollupState = "finished"
+	RollupScheduled RollupState = "scheduled"
+	RollupSucceeded RollupState = "succeeded"
 )
 
 // Severity returns a sortable integer: higher = worse (for failure-first ordering).
@@ -24,7 +28,7 @@ func (s RollupState) Severity() int {
 		return 3
 	case RollupBlocked:
 		return 2
-	case RollupBuilding:
+	case RollupBuilding, RollupFinished, RollupScheduled:
 		return 1
 	default:
 		return 0

@@ -10,6 +10,7 @@ const STATE_COLOR: Record<string, string> = {
   broken: 'var(--broken)',
   blocked: 'var(--blocked)',
   building: 'var(--info)',
+  finished: 'var(--brand-purple)',
   scheduled: 'var(--info)',
 }
 
@@ -20,12 +21,14 @@ const STATE_BG: Record<string, string> = {
   broken: 'var(--broken-tint)',
   blocked: 'var(--blocked-tint)',
   building: 'var(--info-tint)',
+  finished: 'var(--brand-purple-tint)',
   scheduled: 'var(--info-tint)',
 }
 
 const STATE_LABEL: Record<string, string> = {
   succeeded: 'OK', failed: 'Failed', unresolvable: 'Unresolvable',
-  broken: 'Broken', blocked: 'Blocked', building: 'Building', scheduled: 'Scheduled',
+  broken: 'Broken', blocked: 'Blocked', building: 'Building',
+  finished: 'Finishing', scheduled: 'Scheduled',
 }
 
 const SKIP_STATES = new Set(['disabled', 'excluded', 'locked'])

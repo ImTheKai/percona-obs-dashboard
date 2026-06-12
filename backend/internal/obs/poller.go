@@ -81,18 +81,43 @@ func (p *Poller) tick(ctx context.Context) {
 			key := project + "/" + pkgName
 			prev := byKey[key]
 
-			if prev == nil || prev.RollupState != pkg.RollupState {
+			rollupChanged := prev == nil || prev.RollupState != pkg.RollupState
+			if rollupChanged || targetsChanged(prev, pkg) {
 				if err := store.UpsertPackageState(p.db, pkg); err != nil {
 					slog.Error("poller: upsert package", "pkg", pkgName, "err", err)
 					continue
 				}
-				evt := stateChangeEvent(pkg, prev)
-				if err := store.AppendEvent(p.db, evt); err != nil {
-					slog.Error("poller: append event", "err", err)
+				if rollupChanged {
+					evt := stateChangeEvent(pkg, prev)
+					if err := store.AppendEvent(p.db, evt); err != nil {
+						slog.Error("poller: append event", "err", err)
+					}
 				}
 			}
 		}
 	}
+}
+
+// targetsChanged returns true when any individual target state differs between
+// the stored package and the freshly-polled one. This catches transient state
+// changes (e.g. succeeded→finished→succeeded) that don't alter the rollup.
+func targetsChanged(prev *model.Package, next *model.Package) bool {
+	if prev == nil {
+		return true
+	}
+	if len(prev.Targets) != len(next.Targets) {
+		return true
+	}
+	prevStates := make(map[string]string, len(prev.Targets))
+	for _, t := range prev.Targets {
+		prevStates[t.Repo+"/"+t.Arch] = t.State
+	}
+	for _, t := range next.Targets {
+		if prevStates[t.Repo+"/"+t.Arch] != t.State {
+			return true
+		}
+	}
+	return false
 }
 
 // discoverProjects returns all OBS projects under root using the search API.
@@ -156,10 +181,12 @@ func skipState(state string) bool {
 // buildPackage aggregates target states into a Package with worst-case rollup.
 // Targets with state disabled/excluded/locked are silently dropped.
 func buildPackage(project, name string, scope model.Scope, targets []PackageBuildState) *model.Package {
-	// Precedence from worst to best
+	// Precedence from worst to best. finished/scheduled are transient in-progress
+	// states and must appear before succeeded so they are not silently ignored.
 	stateOrder := []model.RollupState{
 		model.RollupBroken, model.RollupFailed, model.RollupUnresolvable,
-		model.RollupBlocked, model.RollupBuilding, model.RollupSucceeded,
+		model.RollupBlocked, model.RollupBuilding, model.RollupFinished,
+		model.RollupScheduled, model.RollupSucceeded,
 	}
 	stateSet := map[string]bool{}
 	var active []PackageBuildState
