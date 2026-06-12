@@ -143,9 +143,36 @@ const contexts = computed<Context[]>(() => {
 
 ---
 
+## Dynamic Version Tabs
+
+Version tabs are no longer hardcoded. The available versions are derived from the packages currently loaded for the selected context.
+
+A version segment is any colon-delimited part of a project path that is a bare integer (e.g. `17` in `isv:percona:ppg:17:containers` or `isv:percona:PR:pr-92:ppg:17`). Packages whose project path contains no such segment (common packages like `isv:percona:ppg:common`) contribute no version and are always shown regardless of the selected version tab.
+
+```typescript
+// derived in App.vue from the loaded packages for the current context
+const KNOWN_VERSIONS = new Set(['16', '17', '18', '19']) // guard against noise
+
+const availableVersions = computed<string[]>(() => {
+  const found = new Set<string>()
+  for (const pkg of allPackages.value) {
+    for (const seg of pkg.project.split(':')) {
+      if (KNOWN_VERSIONS.has(seg)) found.add(seg)
+    }
+  }
+  // Sort descending (newest first)
+  return [...found].sort((a, b) => parseInt(b) - parseInt(a))
+})
+```
+
+`availableVersions` is passed to `ContextBar` as a prop replacing the hardcoded `VERSIONS` constant. When the selected context changes and `availableVersions` updates, `version` is reset to `availableVersions[0]` (the highest available version). If `availableVersions` is empty (context has only common packages), the version tab row is hidden.
+
+`matchesVersion` in `usePackages` is updated to use `availableVersions` instead of the hardcoded `['16', '17', '18']` constant for the exclusion list.
+
+---
+
 ## Behaviour Details
 
-- **Version tabs**: work identically for PR contexts. `matchesVersion` checks for version segments (16, 17, 18) in the project path — this works for `isv:percona:PR:pr-92:ppg:17` paths.
-- **Scope chips**: unchanged. PR packages already carry `scope: 'pr'` but scope filtering is applied on the `scope` field values (common, version, container, etc.) which are correctly assigned by the poller.
+- **Scope chips**: unchanged. Scope filtering is applied on the `scope` field values (common, version, container, etc.) which are correctly assigned by the poller.
 - **Auto-refresh**: unchanged — 5-minute timer calls `refresh()` which re-fetches for the currently selected context.
 - **No PRs yet**: when `/api/pr/packages` returns an empty list, `contexts` has only the PPG entry and ContextBar renders a plain badge — identical to the current UI.
