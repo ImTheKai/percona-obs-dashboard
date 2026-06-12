@@ -48,7 +48,10 @@ function toggleScope(scope: string) {
 function selectContext(ctx: Context) {
   selectedContext.value = ctx
   activeScopes.value = []
-  // availableVersions watcher resets version, which triggers a fetch via watch(version)
+  // Fetch immediately so packages update before availableVersions watcher fires.
+  // The version watcher may fire a second request if version resets, but the
+  // server ignores the version URL param so both return the same data.
+  refresh()
 }
 
 // Event window state
