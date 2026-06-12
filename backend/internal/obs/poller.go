@@ -11,6 +11,7 @@ import (
 	"github.com/oklog/ulid/v2"
 	"github.com/percona/obs-dashboard/internal/model"
 	"github.com/percona/obs-dashboard/internal/store"
+	hubpkg "github.com/percona/obs-dashboard/internal/hub"
 )
 
 // Poller periodically fetches OBS build results and reconciles them with the store.
@@ -19,10 +20,11 @@ type Poller struct {
 	db       *sql.DB
 	interval time.Duration
 	root     string
+	hub      *hubpkg.Hub
 }
 
-func NewPoller(client *Client, db *sql.DB, interval time.Duration) *Poller {
-	return &Poller{client: client, db: db, interval: interval, root: "isv:percona"}
+func NewPoller(client *Client, db *sql.DB, interval time.Duration, h *hubpkg.Hub) *Poller {
+	return &Poller{client: client, db: db, interval: interval, root: "isv:percona", hub: h}
 }
 
 // Run blocks until ctx is cancelled. It ticks immediately on first call.
@@ -92,10 +94,13 @@ func (p *Poller) tick(ctx context.Context) {
 					slog.Error("poller: upsert package", "pkg", pkgName, "err", err)
 					continue
 				}
+				p.hub.Notify(hubpkg.PackageUpdate(pkg))
 				if rollupChanged {
 					evt := stateChangeEvent(pkg, prev)
 					if err := store.AppendEvent(p.db, evt); err != nil {
 						slog.Error("poller: append event", "err", err)
+					} else {
+						p.hub.Notify(hubpkg.NewEvent(evt))
 					}
 				}
 			}
