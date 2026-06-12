@@ -1,1 +1,198 @@
 package obs
+
+import (
+	"context"
+	"database/sql"
+	"fmt"
+	"log/slog"
+	"strings"
+	"time"
+
+	"github.com/oklog/ulid/v2"
+	"github.com/percona/obs-dashboard/internal/model"
+	"github.com/percona/obs-dashboard/internal/store"
+)
+
+// Poller periodically fetches OBS build results and reconciles them with the store.
+type Poller struct {
+	client   *Client
+	db       *sql.DB
+	interval time.Duration
+	root     string
+}
+
+func NewPoller(client *Client, db *sql.DB, interval time.Duration) *Poller {
+	return &Poller{client: client, db: db, interval: interval, root: "isv:percona"}
+}
+
+// Run blocks until ctx is cancelled. It ticks immediately on first call.
+func (p *Poller) Run(ctx context.Context) {
+	ticker := time.NewTicker(p.interval)
+	defer ticker.Stop()
+
+	p.tick(ctx)
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-ticker.C:
+			p.tick(ctx)
+		}
+	}
+}
+
+func (p *Poller) tick(ctx context.Context) {
+	projects, err := p.discoverProjects(ctx, p.root)
+	if err != nil {
+		slog.Error("poller: discover projects", "err", err)
+		return
+	}
+
+	// Load current store state keyed by (project, package)
+	existing, err := store.QueryPackages(p.db, p.root)
+	if err != nil {
+		slog.Error("poller: query packages", "err", err)
+		return
+	}
+	byKey := make(map[string]*model.Package, len(existing))
+	for _, pkg := range existing {
+		byKey[pkg.Project+"/"+pkg.Name] = pkg
+	}
+
+	for _, project := range projects {
+		if ctx.Err() != nil {
+			return
+		}
+		results, err := p.client.BuildResults(ctx, project)
+		if err != nil {
+			slog.Warn("poller: build results", "project", project, "err", err)
+			continue
+		}
+
+		// Group results by package name
+		byPkg := map[string][]PackageBuildState{}
+		for _, r := range results {
+			byPkg[r.Package] = append(byPkg[r.Package], r)
+		}
+
+		scope := InferScope(project)
+		for pkgName, targets := range byPkg {
+			pkg := buildPackage(project, pkgName, scope, targets)
+			key := project + "/" + pkgName
+			prev := byKey[key]
+
+			if prev == nil || prev.RollupState != pkg.RollupState {
+				if err := store.UpsertPackageState(p.db, pkg); err != nil {
+					slog.Error("poller: upsert package", "pkg", pkgName, "err", err)
+					continue
+				}
+				evt := stateChangeEvent(pkg, prev)
+				if err := store.AppendEvent(p.db, evt); err != nil {
+					slog.Error("poller: append event", "err", err)
+				}
+			}
+		}
+	}
+}
+
+// discoverProjects recursively enumerates all subprojects under root.
+func (p *Poller) discoverProjects(ctx context.Context, root string) ([]string, error) {
+	children, err := p.client.ListSubprojects(ctx, root)
+	if err != nil {
+		return nil, err
+	}
+	all := []string{root}
+	for _, child := range children {
+		sub, err := p.discoverProjects(ctx, child)
+		if err != nil {
+			slog.Warn("poller: discover subproject", "project", child, "err", err)
+			all = append(all, child)
+			continue
+		}
+		all = append(all, sub...)
+	}
+	return all, nil
+}
+
+// InferScope classifies an OBS project name into a Scope tier.
+func InferScope(project string) model.Scope {
+	lower := strings.ToLower(project)
+	switch {
+	case strings.Contains(lower, "container"):
+		return model.ScopeContainer
+	case strings.Contains(lower, "release"):
+		return model.ScopeRelease
+	case strings.Contains(lower, "ppgcommon"):
+		return model.ScopePPGCommon
+	case strings.Contains(lower, "common"):
+		return model.ScopeCommon
+	default:
+		// projects like isv:percona:ppg:17 have a version number segment
+		parts := strings.Split(project, ":")
+		if len(parts) >= 4 {
+			return model.ScopeVersion
+		}
+		return model.ScopeCommon
+	}
+}
+
+// buildPackage aggregates target states into a Package with worst-case rollup.
+func buildPackage(project, name string, scope model.Scope, targets []PackageBuildState) *model.Package {
+	// Precedence from worst to best
+	stateOrder := []model.RollupState{
+		model.RollupBroken, model.RollupFailed, model.RollupUnresolvable,
+		model.RollupBlocked, model.RollupBuilding, model.RollupSucceeded,
+	}
+	stateSet := map[string]bool{}
+	for _, t := range targets {
+		stateSet[t.State] = true
+	}
+
+	rollup := model.RollupSucceeded
+	for _, s := range stateOrder {
+		if stateSet[string(s)] {
+			rollup = s
+			break
+		}
+	}
+
+	ok := 0
+	mTargets := make([]model.Target, len(targets))
+	for i, t := range targets {
+		mTargets[i] = model.Target{Repo: t.Repo, Arch: t.Arch, State: t.State}
+		if t.State == "succeeded" {
+			ok++
+		}
+	}
+
+	return &model.Package{
+		Project:      project,
+		Name:         name,
+		Scope:        scope,
+		RollupState:  rollup,
+		OKTargets:    ok,
+		TotalTargets: len(targets),
+		Targets:      mTargets,
+		UpdatedAt:    time.Now().UTC(),
+	}
+}
+
+func stateChangeEvent(pkg *model.Package, prev *model.Package) *model.Event {
+	evtType := model.EventType(string(pkg.RollupState))
+	what := fmt.Sprintf("%s %s", pkg.Name, string(pkg.RollupState))
+	why := "first observed"
+	if prev != nil {
+		why = fmt.Sprintf("state changed from %s", string(prev.RollupState))
+	}
+	return &model.Event{
+		ID:      "evt_" + ulid.Make().String(),
+		Type:    evtType,
+		Scope:   pkg.Scope,
+		Project: pkg.Project,
+		Package: pkg.Name,
+		What:    what,
+		Why:     why,
+		URL:     fmt.Sprintf("https://build.opensuse.org/package/show/%s/%s", pkg.Project, pkg.Name),
+		At:      pkg.UpdatedAt,
+	}
+}
