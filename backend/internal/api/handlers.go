@@ -101,6 +101,8 @@ func eventsHandler(db *sql.DB) http.HandlerFunc {
 
 // prContextPackagesHandler returns a handler for GET /api/pr/{pr}/{subproject}/{version}/packages.
 // Builds the OBS prefix as isv:percona:PR:{pr}:{subproject}.
+// {version} is accepted for URL symmetry with /api/products routes but ignored server-side;
+// the prefix covers all versions and version filtering is done client-side.
 func prContextPackagesHandler(db *sql.DB) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		pr := chi.URLParam(r, "pr")
@@ -122,6 +124,7 @@ func prContextPackagesHandler(db *sql.DB) http.HandlerFunc {
 
 // prContextEventsHandler returns a handler for GET /api/pr/{pr}/{subproject}/{version}/events.
 // Builds the OBS prefix as isv:percona:PR:{pr}:{subproject}.
+// {version} is accepted for URL symmetry but ignored server-side (filtering is client-side).
 func prContextEventsHandler(db *sql.DB) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		pr := chi.URLParam(r, "pr")

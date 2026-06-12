@@ -135,8 +135,15 @@ func TestPRContextPackagesHandler_EmptyDB(t *testing.T) {
 	if rec.Code != http.StatusOK {
 		t.Fatalf("expected 200, got %d", rec.Code)
 	}
+	var result json.RawMessage
+	if err := json.NewDecoder(rec.Body).Decode(&result); err != nil {
+		t.Fatalf("decode response: %v", err)
+	}
+	if string(result) == "null" {
+		t.Fatal("expected JSON array, got null")
+	}
 	var arr []interface{}
-	if err := json.NewDecoder(rec.Body).Decode(&arr); err != nil {
+	if err := json.Unmarshal(result, &arr); err != nil {
 		t.Fatalf("expected JSON array: %v", err)
 	}
 }
@@ -149,8 +156,15 @@ func TestPRContextEventsHandler_EmptyDB(t *testing.T) {
 	if rec.Code != http.StatusOK {
 		t.Fatalf("expected 200, got %d", rec.Code)
 	}
+	var result json.RawMessage
+	if err := json.NewDecoder(rec.Body).Decode(&result); err != nil {
+		t.Fatalf("decode response: %v", err)
+	}
+	if string(result) == "null" {
+		t.Fatal("expected JSON array, got null")
+	}
 	var arr []interface{}
-	if err := json.NewDecoder(rec.Body).Decode(&arr); err != nil {
+	if err := json.Unmarshal(result, &arr); err != nil {
 		t.Fatalf("expected JSON array: %v", err)
 	}
 }
