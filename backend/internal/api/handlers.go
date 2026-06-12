@@ -3,6 +3,7 @@ package api
 import (
 	"database/sql"
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"sort"
 	"strconv"
@@ -37,6 +38,36 @@ func packagesHandler(db *sql.DB) http.HandlerFunc {
 	}
 }
 
+// parseTimeWindow parses window/from/to query params and returns the time range.
+// Defaults to the last 24 hours when no params are provided.
+func parseTimeWindow(r *http.Request) (from, to time.Time, err error) {
+	now := time.Now().UTC()
+	if windowStr := r.URL.Query().Get("window"); windowStr != "" {
+		windowMinutes, parseErr := strconv.Atoi(windowStr)
+		if parseErr != nil || windowMinutes <= 0 {
+			return time.Time{}, time.Time{}, fmt.Errorf("invalid window")
+		}
+		return now.Add(-time.Duration(windowMinutes) * time.Minute), now, nil
+	}
+	if fromStr := r.URL.Query().Get("from"); fromStr != "" {
+		toStr := r.URL.Query().Get("to")
+		if toStr == "" {
+			return time.Time{}, time.Time{}, fmt.Errorf("to required")
+		}
+		const layout = "2006-01-02"
+		parsedFrom, parseErr := time.Parse(layout, fromStr)
+		if parseErr != nil {
+			return time.Time{}, time.Time{}, fmt.Errorf("invalid from")
+		}
+		parsedTo, parseErr := time.Parse(layout, toStr)
+		if parseErr != nil {
+			return time.Time{}, time.Time{}, fmt.Errorf("invalid to")
+		}
+		return parsedFrom.UTC(), parsedTo.UTC().Add(24*time.Hour - time.Nanosecond), nil
+	}
+	return now.Add(-24 * time.Hour), now, nil
+}
+
 // eventsHandler returns a handler for GET /api/products/{product}/{version}/events.
 // Query params:
 //   - window=<minutes>  — last N minutes (overrides from/to)
@@ -49,41 +80,58 @@ func eventsHandler(db *sql.DB) http.HandlerFunc {
 		product := chi.URLParam(r, "product")
 		prefix := "isv:percona:" + product
 
-		now := time.Now().UTC()
-		var from, to time.Time
+		from, to, err := parseTimeWindow(r)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		}
 
-		if windowStr := r.URL.Query().Get("window"); windowStr != "" {
-			windowMinutes, err := strconv.Atoi(windowStr)
-			if err != nil || windowMinutes <= 0 {
-				http.Error(w, "invalid window parameter", http.StatusBadRequest)
-				return
-			}
-			from = now.Add(-time.Duration(windowMinutes) * time.Minute)
-			to = now
-		} else if fromStr := r.URL.Query().Get("from"); fromStr != "" {
-			toStr := r.URL.Query().Get("to")
-			if toStr == "" {
-				http.Error(w, "to parameter is required when from is set", http.StatusBadRequest)
-				return
-			}
-			const dateLayout = "2006-01-02"
-			parsedFrom, err := time.Parse(dateLayout, fromStr)
-			if err != nil {
-				http.Error(w, "invalid from date", http.StatusBadRequest)
-				return
-			}
-			parsedTo, err := time.Parse(dateLayout, toStr)
-			if err != nil {
-				http.Error(w, "invalid to date", http.StatusBadRequest)
-				return
-			}
-			from = parsedFrom.UTC()
-			// Include all events up to end of the 'to' day.
-			to = parsedTo.UTC().Add(24*time.Hour - time.Nanosecond)
-		} else {
-			// Default: last 24 hours.
-			from = now.Add(-24 * time.Hour)
-			to = now
+		events, err := store.QueryEvents(db, prefix, from, to)
+		if err != nil {
+			http.Error(w, "internal server error", http.StatusInternalServerError)
+			return
+		}
+
+		w.Header().Set("Content-Type", "application/json")
+		if err := json.NewEncoder(w).Encode(events); err != nil {
+			return
+		}
+	}
+}
+
+// prContextPackagesHandler returns a handler for GET /api/pr/{pr}/{subproject}/{version}/packages.
+// Builds the OBS prefix as isv:percona:PR:{pr}:{subproject}.
+func prContextPackagesHandler(db *sql.DB) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		pr := chi.URLParam(r, "pr")
+		subproject := chi.URLParam(r, "subproject")
+		prefix := "isv:percona:PR:" + pr + ":" + subproject
+
+		pkgs, err := store.QueryPackages(db, prefix)
+		if err != nil {
+			http.Error(w, "internal server error", http.StatusInternalServerError)
+			return
+		}
+
+		w.Header().Set("Content-Type", "application/json")
+		if err := json.NewEncoder(w).Encode(pkgs); err != nil {
+			return
+		}
+	}
+}
+
+// prContextEventsHandler returns a handler for GET /api/pr/{pr}/{subproject}/{version}/events.
+// Builds the OBS prefix as isv:percona:PR:{pr}:{subproject}.
+func prContextEventsHandler(db *sql.DB) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		pr := chi.URLParam(r, "pr")
+		subproject := chi.URLParam(r, "subproject")
+		prefix := "isv:percona:PR:" + pr + ":" + subproject
+
+		from, to, err := parseTimeWindow(r)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
 		}
 
 		events, err := store.QueryEvents(db, prefix, from, to)

@@ -126,3 +126,55 @@ func TestEventsHandler_InvalidWindow(t *testing.T) {
 		t.Fatalf("expected 400, got %d", rec.Code)
 	}
 }
+
+func TestPRContextPackagesHandler_EmptyDB(t *testing.T) {
+	router := setupTestServer(t)
+	req := httptest.NewRequest(http.MethodGet, "/api/pr/pr-92/ppg/17/packages", nil)
+	rec := httptest.NewRecorder()
+	router.ServeHTTP(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d", rec.Code)
+	}
+	var arr []interface{}
+	if err := json.NewDecoder(rec.Body).Decode(&arr); err != nil {
+		t.Fatalf("expected JSON array: %v", err)
+	}
+}
+
+func TestPRContextEventsHandler_EmptyDB(t *testing.T) {
+	router := setupTestServer(t)
+	req := httptest.NewRequest(http.MethodGet, "/api/pr/pr-92/ppg/17/events", nil)
+	rec := httptest.NewRecorder()
+	router.ServeHTTP(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d", rec.Code)
+	}
+	var arr []interface{}
+	if err := json.NewDecoder(rec.Body).Decode(&arr); err != nil {
+		t.Fatalf("expected JSON array: %v", err)
+	}
+}
+
+func TestPRContextEventsHandler_WindowParam(t *testing.T) {
+	router := setupTestServer(t)
+	req := httptest.NewRequest(http.MethodGet, "/api/pr/pr-92/ppg/17/events?window=60", nil)
+	rec := httptest.NewRecorder()
+	router.ServeHTTP(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d", rec.Code)
+	}
+	var arr []interface{}
+	if err := json.NewDecoder(rec.Body).Decode(&arr); err != nil {
+		t.Fatalf("expected JSON array: %v", err)
+	}
+}
+
+func TestPRContextEventsHandler_InvalidWindow(t *testing.T) {
+	router := setupTestServer(t)
+	req := httptest.NewRequest(http.MethodGet, "/api/pr/pr-92/ppg/17/events?window=bad", nil)
+	rec := httptest.NewRecorder()
+	router.ServeHTTP(rec, req)
+	if rec.Code != http.StatusBadRequest {
+		t.Fatalf("expected 400, got %d", rec.Code)
+	}
+}

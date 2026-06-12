@@ -21,5 +21,10 @@ func NewRouter(db *sql.DB) http.Handler {
 
 	r.Get("/api/pr/packages", prPackagesHandler(db))
 
+	r.Route("/api/pr/{pr}/{subproject}/{version}", func(r chi.Router) {
+		r.Get("/packages", prContextPackagesHandler(db))
+		r.Get("/events", prContextEventsHandler(db))
+	})
+
 	return r
 }
