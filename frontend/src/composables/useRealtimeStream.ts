@@ -2,7 +2,7 @@ import { onMounted, onUnmounted, type Ref } from 'vue'
 import type { Package, PRGroup, Event } from '../types/api'
 
 const SEVERITY: Record<string, number> = {
-  broken: 5, unresolvable: 4, failed: 3, blocked: 2,
+  broken: 5, failed: 4, unresolvable: 3, blocked: 2,
   building: 1, finished: 1, scheduled: 1, succeeded: 0,
 }
 
