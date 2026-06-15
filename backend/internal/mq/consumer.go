@@ -12,6 +12,7 @@ import (
 	"github.com/oklog/ulid/v2"
 	hubpkg "github.com/percona/obs-dashboard/internal/hub"
 	"github.com/percona/obs-dashboard/internal/model"
+	"github.com/percona/obs-dashboard/internal/obs"
 	"github.com/percona/obs-dashboard/internal/store"
 	amqp "github.com/rabbitmq/amqp091-go"
 )
@@ -44,13 +45,14 @@ type mqMessage struct {
 
 // Consumer subscribes to the OBS AMQP bus and updates the store on build events.
 type Consumer struct {
-	url string
-	db  *sql.DB
-	hub *hubpkg.Hub
+	url       string
+	db        *sql.DB
+	hub       *hubpkg.Hub
+	obsClient *obs.Client
 }
 
-func NewConsumer(url string, db *sql.DB, h *hubpkg.Hub) *Consumer {
-	return &Consumer{url: url, db: db, hub: h}
+func NewConsumer(url string, db *sql.DB, h *hubpkg.Hub, obsClient *obs.Client) *Consumer {
+	return &Consumer{url: url, db: db, hub: h, obsClient: obsClient}
 }
 
 // appendEvent writes evt to the store and notifies SSE clients.
@@ -154,12 +156,12 @@ func (c *Consumer) run(ctx context.Context) error {
 			if !ok {
 				return fmt.Errorf("channel closed")
 			}
-			c.handle(msg)
+			c.handle(ctx, msg)
 		}
 	}
 }
 
-func (c *Consumer) handle(msg amqp.Delivery) {
+func (c *Consumer) handle(ctx context.Context, msg amqp.Delivery) {
 	var m mqMessage
 	if err := json.Unmarshal(msg.Body, &m); err != nil {
 		slog.Debug("mq: unparseable message", "err", err)
@@ -297,6 +299,8 @@ func (c *Consumer) handle(msg amqp.Delivery) {
 		// Read current package from store and merge the updated target into the
 		// full target list so we don't overwrite other (repo, arch) entries.
 		pkg := c.mergePackageTarget(m, scope, rollup)
+
+		obs.EnrichBlockedTargets(ctx, c.obsClient, pkg)
 
 		if err := c.upsertPackage(pkg); err != nil {
 			slog.Error("mq: upsert package", "err", err)

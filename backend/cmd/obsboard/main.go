@@ -44,7 +44,7 @@ func run() error {
 	obsClient := obs.NewClient(cfg.OBS.BaseURL, cfg.OBS.Username, cfg.OBS.Password)
 	h := hub.New()
 	poller := obs.NewPoller(obsClient, db, cfg.Poller.Interval, h)
-	consumer := mq.NewConsumer(cfg.MQ.URL, db, h)
+	consumer := mq.NewConsumer(cfg.MQ.URL, db, h, obsClient)
 
 	go poller.Run(ctx)
 	go consumer.Run(ctx)
