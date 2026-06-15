@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue'
-import type { Package } from '../types/api'
+import type { Package, Target } from '../types/api'
 
 const props = defineProps<{ pkg: Package }>()
 
@@ -42,6 +42,94 @@ const SCOPE_LABEL: Record<string, string> = {
 const INITIAL_VISIBLE = 3
 
 const showAll = ref(false)
+const expandedTargets = ref(new Set<string>())
+
+function targetKey(t: Target): string {
+  return `${t.repo}/${t.arch}`
+}
+
+function toggleTarget(t: Target) {
+  if (!hasDetail(t)) return
+  const key = targetKey(t)
+  const next = new Set(expandedTargets.value)
+  if (next.has(key)) next.delete(key)
+  else next.add(key)
+  expandedTargets.value = next
+}
+
+function isExpanded(t: Target): boolean {
+  return expandedTargets.value.has(targetKey(t))
+}
+
+function hasDetail(t: Target): boolean {
+  if (t.build_reason) return true
+  if (t.state === 'blocked' && t.blocked_by) return true
+  if ((t.state === 'finished' || t.state === 'unresolvable' || t.state === 'broken') && t.details) return true
+  return false
+}
+
+function finishedOutcome(t: Target): 'ok' | 'fail' | 'unknown' {
+  if (t.state !== 'finished') return 'unknown'
+  if (t.details === 'succeeded' || t.details === 'unchanged') return 'ok'
+  if (t.details === 'failed') return 'fail'
+  return 'unknown'
+}
+
+function targetDotColor(t: Target): string {
+  if (t.state === 'finished') {
+    const o = finishedOutcome(t)
+    if (o === 'ok') return 'var(--ok)'
+    if (o === 'fail') return 'var(--fail)'
+  }
+  return STATE_COLOR[t.state] ?? 'var(--blocked)'
+}
+
+function targetLabelColor(t: Target): string {
+  return targetDotColor(t)
+}
+
+function targetBg(t: Target): string {
+  if (t.state === 'finished') {
+    const o = finishedOutcome(t)
+    if (o === 'ok') return 'var(--ok-tint)'
+    if (o === 'fail') return 'var(--fail-tint)'
+  }
+  return STATE_BG[t.state] ?? 'var(--blocked-tint)'
+}
+
+function buildReasonText(t: Target): string {
+  if (!t.build_reason) return ''
+  if (t.build_reason_packages?.length) return `${t.build_reason}: ${t.build_reason_packages.join(', ')}`
+  return t.build_reason
+}
+
+function stateDetailLabel(t: Target): string {
+  if (t.state === 'blocked') return 'Waiting for'
+  if (t.state === 'finished') return 'Build outcome'
+  if (t.state === 'unresolvable') return 'Unresolvable'
+  if (t.state === 'broken') return 'Broken'
+  return ''
+}
+
+function stateDetailValue(t: Target): string {
+  if (t.state === 'blocked') return t.blocked_by ?? ''
+  if (t.state === 'finished') return t.details ?? ''
+  if (t.state === 'unresolvable') return t.details ?? ''
+  if (t.state === 'broken') return t.details ?? ''
+  return ''
+}
+
+function stateDetailColor(t: Target): string {
+  if (t.state === 'blocked') return 'var(--warn)'
+  if (t.state === 'finished') {
+    const o = finishedOutcome(t)
+    if (o === 'ok') return 'var(--ok)'
+    if (o === 'fail') return 'var(--fail)'
+  }
+  if (t.state === 'unresolvable') return 'var(--brand-purple)'
+  if (t.state === 'broken') return 'var(--broken)'
+  return 'var(--text-muted)'
+}
 
 const failingTargets = computed(() =>
   props.pkg.targets.filter(t => !SKIP_STATES.has(t.state) && t.state !== 'succeeded')
@@ -94,41 +182,58 @@ function logUrl(repo: string, arch: string): string {
         {{ failingTargets.length }} failing target{{ failingTargets.length !== 1 ? 's' : '' }}
       </span>
       <div style="display: flex; flex-direction: column; gap: 5px;">
-        <a
+        <div
           v-for="t in visibleFailing"
-          :key="`${t.repo}-${t.arch}`"
-          :href="logUrl(t.repo, t.arch)"
-          target="_blank"
-          rel="noopener"
+          :key="targetKey(t)"
           :style="{
-            display: 'flex', flexDirection: 'column', gap: '3px',
-            textDecoration: 'none', padding: '5px 9px', borderRadius: '7px',
-            background: STATE_BG[t.state] ?? 'var(--blocked-tint)',
+            borderRadius: '7px',
+            overflow: 'hidden',
+            background: targetBg(t),
           }"
         >
-          <div style="display: flex; align-items: center; gap: 9px;">
-            <span :style="{ width: '8px', height: '8px', borderRadius: '2px', background: STATE_COLOR[t.state] ?? 'var(--blocked)', flexShrink: '0' }"></span>
+          <!-- Target header row -->
+          <div
+            :style="{
+              display: 'flex', alignItems: 'center', gap: '9px',
+              padding: '5px 9px',
+              cursor: hasDetail(t) ? 'pointer' : 'default',
+              userSelect: 'none',
+            }"
+            @click="toggleTarget(t)"
+          >
+            <span :style="{ width: '8px', height: '8px', borderRadius: '2px', background: targetDotColor(t), flexShrink: '0' }"></span>
             <code style="font-family: var(--font-mono); font-size: 11.5px; color: var(--text-primary); flex-shrink: 0;">{{ t.repo }}/{{ t.arch }}</code>
-            <span :style="{ fontSize: '11px', color: STATE_COLOR[t.state] ?? 'var(--text-secondary)', marginLeft: 'auto', fontWeight: '600', flexShrink: '0' }">{{ t.state }}</span>
-            <span style="font-size: 10.5px; color: var(--brand-purple); font-weight: 700; flex-shrink: 0;">log ↗</span>
+            <span :style="{ fontSize: '11px', color: targetLabelColor(t), marginLeft: 'auto', fontWeight: '600', flexShrink: '0' }">{{ STATE_LABEL[t.state] ?? t.state }}</span>
+            <a
+              :href="logUrl(t.repo, t.arch)"
+              target="_blank"
+              rel="noopener"
+              style="font-size: 10.5px; color: var(--brand-purple); font-weight: 700; flex-shrink: 0; text-decoration: none;"
+              @click.stop
+            >log ↗</a>
+            <span
+              v-if="hasDetail(t)"
+              style="font-size: 10px; color: var(--text-muted); flex-shrink: 0; width: 12px; text-align: center;"
+            >{{ isExpanded(t) ? '▾' : '▸' }}</span>
           </div>
-          <span
-            v-if="t.state === 'blocked' && (t.blocked_by || t.build_reason)"
-            :title="t.blocked_by || t.build_reason"
-            style="font-family: var(--font-mono); font-size: 10.5px; color: var(--text-muted); padding-left: calc(8px + 9px); overflow: hidden; text-overflow: ellipsis; white-space: nowrap;"
-          >{{ t.blocked_by || t.build_reason }}</span>
-          <span
-            v-if="t.state === 'finished' && t.details"
-            :title="t.details"
-            style="font-family: var(--font-mono); font-size: 10.5px; padding-left: calc(8px + 9px); overflow: hidden; text-overflow: ellipsis; white-space: nowrap;"
-            :style="{ color: t.details === 'succeeded' ? 'var(--succeeded)' : 'var(--failed)' }"
-          >{{ t.details }}</span>
-          <span
-            v-if="t.state !== 'blocked' && t.state !== 'succeeded' && t.build_reason"
-            :title="t.build_reason_packages?.join(', ') || t.build_reason"
-            style="font-family: var(--font-mono); font-size: 10.5px; color: var(--text-muted); padding-left: calc(8px + 9px); overflow: hidden; text-overflow: ellipsis; white-space: nowrap;"
-          >{{ t.build_reason }}{{ t.build_reason_packages?.length ? ': ' + t.build_reason_packages.join(', ') : '' }}</span>
-        </a>
+
+          <!-- Target body (collapsible) -->
+          <div
+            v-show="isExpanded(t)"
+            style="padding: 0 9px 8px calc(9px + 8px + 9px); display: flex; flex-direction: column; gap: 5px;"
+          >
+            <hr style="border: none; border-top: 1px solid var(--border); margin: 0 0 3px;" />
+            <div v-if="buildReasonText(t)" style="display: flex; flex-direction: column; gap: 1px;">
+              <span style="font-size: 9px; text-transform: uppercase; letter-spacing: 0.07em; color: var(--text-muted); font-weight: 700;">Build reason</span>
+              <span style="font-family: var(--font-mono); font-size: 10.5px; color: var(--text-secondary); line-height: 1.4;">{{ buildReasonText(t) }}</span>
+            </div>
+            <div v-if="stateDetailValue(t)" style="display: flex; flex-direction: column; gap: 1px;">
+              <span style="font-size: 9px; text-transform: uppercase; letter-spacing: 0.07em; color: var(--text-muted); font-weight: 700;">{{ stateDetailLabel(t) }}</span>
+              <span :style="{ fontFamily: 'var(--font-mono)', fontSize: '10.5px', color: stateDetailColor(t), fontWeight: '600', lineHeight: '1.4' }">{{ stateDetailValue(t) }}</span>
+            </div>
+          </div>
+        </div>
+
         <button
           v-if="!showAll && hiddenCount > 0"
           @click="showAll = true"
