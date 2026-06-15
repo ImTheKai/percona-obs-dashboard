@@ -49,6 +49,9 @@ type BuildReasonTask struct{}
 
 func (t BuildReasonTask) Run(ctx context.Context, client *Client, pkg *model.Package) error {
 	for i, target := range pkg.Targets {
+		if ctx.Err() != nil {
+			return ctx.Err()
+		}
 		if target.State == "succeeded" {
 			continue
 		}

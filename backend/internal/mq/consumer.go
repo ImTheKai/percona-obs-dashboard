@@ -306,7 +306,6 @@ func (c *Consumer) handle(ctx context.Context, msg amqp.Delivery) {
 			slog.Error("mq: upsert package", "err", err)
 			return
 		}
-		c.ws.Signal(pkg)
 		evt := &model.Event{
 			ID:      "evt_" + ulid.Make().String(),
 			Type:    evtType,
@@ -321,6 +320,9 @@ func (c *Consumer) handle(ctx context.Context, msg amqp.Delivery) {
 			At:      time.Now().UTC(),
 		}
 		c.appendEvent(evt)
+		if pkg.RollupState != model.RollupSucceeded {
+			c.ws.Signal(pkg)
+		}
 	}
 }
 
