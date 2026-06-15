@@ -1,0 +1,51 @@
+{
+  "planPath": "docs/superpowers/plans/2026-06-15-working-set-architecture.md",
+  "tasks": [
+    {
+      "id": 56,
+      "subject": "Task 1: Data model and config additions",
+      "status": "pending",
+      "description": "Add BuildReason/BuildReasonPackages to Target, add WorkerPoolConfig to config."
+    },
+    {
+      "id": 57,
+      "subject": "Task 2: Store additions",
+      "status": "pending",
+      "description": "Add GetActivePackages() and rollup_state index."
+    },
+    {
+      "id": 58,
+      "subject": "Task 3: WorkingSet package",
+      "status": "pending",
+      "description": "Create internal/workingset/ with full WorkingSet API."
+    },
+    {
+      "id": 59,
+      "subject": "Task 4: Worker Pool",
+      "status": "pending",
+      "blockedBy": [58],
+      "description": "Create internal/worker/ with Task interface and Pool."
+    },
+    {
+      "id": 60,
+      "subject": "Task 5: OBS client additions",
+      "status": "pending",
+      "description": "Add PackageBuildResults and PackageBuildReason to obs client."
+    },
+    {
+      "id": 61,
+      "subject": "Task 6: Built-in tasks",
+      "status": "pending",
+      "blockedBy": [56, 59, 60],
+      "description": "Create obs/tasks.go with BuildStateTask, BlockedReasonTask, BuildReasonTask."
+    },
+    {
+      "id": 62,
+      "subject": "Task 7: Wire everything together",
+      "status": "pending",
+      "blockedBy": [56, 57, 58, 59, 60, 61],
+      "description": "Update poller.go, consumer.go, main.go to wire all components."
+    }
+  ],
+  "lastUpdated": "2026-06-15T00:00:00Z"
+}
