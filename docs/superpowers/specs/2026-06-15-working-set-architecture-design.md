@@ -12,9 +12,10 @@
 - Broad poller keeps its discovery role (Option A); per-package detail polling moves to workers.
 - Working set is derived from the existing DB on startup (no separate working set table); an index on `rollup_state` is added for the startup query.
 - Worker pool size is configurable (`worker_pool.size`).
-- Workers poll on a fixed interval (`worker_pool.interval`) AND are triggered immediately by MQ events (`ws.Signal`) — hybrid A+C.
+- Workers poll on a fixed interval (`worker_pool.poll_interval`) AND are triggered immediately by MQ events (`ws.Signal`) — hybrid A+C.
 - Dispatch channel is configurable (`worker_pool.queue_size`), default 512.
 - `Task` is the interface name (not `Enricher`).
+- `BuildReasonTask` fetches `_reason` for all non-succeeded targets (building, scheduled, blocked, failed).
 
 ---
 
@@ -24,14 +25,16 @@
 |------|--------|
 | `backend/internal/workingset/workingset.go` | New — working set map, dispatch channel, scheduler |
 | `backend/internal/worker/worker.go` | New — `Task` interface, `Pool` struct |
-| `backend/internal/obs/tasks.go` | New — `BuildStateTask`, `BlockedReasonTask` |
+| `backend/internal/obs/tasks.go` | New — `BuildStateTask`, `BlockedReasonTask`, `BuildReasonTask` |
 | `backend/internal/store/packages.go` | Add `GetActivePackages()` |
 | `backend/internal/config/config.go` | Add `WorkerPool` config section |
 | `backend/internal/obs/poller.go` | Call `ws.Add(pkg)` on state change; remove `EnrichBlockedTargets` call |
 | `backend/internal/mq/consumer.go` | Call `ws.Signal(pkg)` after upsert; remove `EnrichBlockedTargets` call |
 | `backend/cmd/obsboard/main.go` | Wire new components: seed working set, register tasks, start pool |
 
-No other files change. Existing REST endpoints, SSE stream, and data model are untouched.
+| `backend/internal/model/types.go` | Add `BuildReason`, `BuildReasonPackages` to `Target` |
+
+No other files change. Existing REST endpoints and SSE stream are untouched.
 
 ---
 
@@ -108,6 +111,25 @@ Goroutines exit when `ws.Dispatch()` is closed or `ctx` is cancelled.
 
 ---
 
+### Model extension (`internal/model/types.go`)
+
+Two fields are added to `Target`:
+
+```go
+type Target struct {
+    Repo                string   `json:"repo"`
+    Arch                string   `json:"arch"`
+    State               string   `json:"state"`
+    BlockedBy           string   `json:"blocked_by,omitempty"`
+    BuildReason         string   `json:"build_reason,omitempty"`          // e.g. "meta change", "source change", "new build"
+    BuildReasonPackages []string `json:"build_reason_packages,omitempty"` // populated only when BuildReason == "meta change"
+}
+```
+
+Both fields are `omitempty` — targets without a known build reason add no overhead to the JSON payload.
+
+---
+
 ### Built-in Tasks (`internal/obs/tasks.go`)
 
 ```go
@@ -126,6 +148,36 @@ func (t BlockedReasonTask) Run(ctx context.Context, client *Client, pkg *model.P
 ```
 
 `BuildStateTask.Run` calls the OBS `/build/{project}/_result?package={name}` endpoint (per-package variant of the existing broad result fetch), parses the XML, and updates the package in place — same logic the poller uses today, scoped to one package.
+
+```go
+// BuildReasonTask fetches the build trigger reason for each non-succeeded target
+// and populates Target.BuildReason and Target.BuildReasonPackages.
+// Runs for targets in building, scheduled, blocked, and failed states.
+type BuildReasonTask struct{}
+func (t BuildReasonTask) Run(ctx context.Context, client *Client, pkg *model.Package) error
+```
+
+`BuildReasonTask.Run` iterates `pkg.Targets`, skipping targets with `state == "succeeded"`. For each qualifying target it calls:
+
+```
+GET /build/{project}/{repo}/{arch}/{package}/_reason
+```
+
+The response XML structure (to be verified against the live API):
+```xml
+<reason>
+  <explain>meta change</explain>
+  <time>1234567890</time>
+  <packagechange>
+    <change revision="abc">libfoo</change>
+    <change revision="def">libbar</change>
+  </packagechange>
+</reason>
+```
+
+The `<explain>` text is stored in `Target.BuildReason`. When `explain == "meta change"`, each `<change>` element's text content is collected into `Target.BuildReasonPackages`. For all other reason types, `BuildReasonPackages` remains nil.
+
+**Note:** The exact XML field names must be verified against the OBS API during implementation (e.g., the element wrapping `<change>` entries may differ). The implementer must test against a real OBS instance and adjust the XML struct tags accordingly.
 
 ---
 
@@ -202,6 +254,7 @@ ws.Seed(activePkgs)
 tasks := []worker.Task{
     obs.BuildStateTask{},
     obs.BlockedReasonTask{},
+    obs.BuildReasonTask{},
 }
 
 // Start worker pool
@@ -239,7 +292,8 @@ WorkingSet Scheduler (every worker_pool.interval)
 Worker Pool (worker_pool.size goroutines)
   ← reads from dispatch channel
   → BuildStateTask.Run()      ← fetch current state from OBS
-  → BlockedReasonTask.Run()   ← fetch blocked reason if applicable
+  → BlockedReasonTask.Run()   ← fetch blocked reason for blocked targets
+  → BuildReasonTask.Run()     ← fetch build trigger reason for non-succeeded targets
   → store.UpsertPackageState() + hub.Notify()
   → if RollupState == succeeded → ws.Remove(key)
 ```
@@ -258,6 +312,6 @@ Worker Pool (worker_pool.size goroutines)
 
 - All existing REST endpoints are untouched.
 - The SSE stream and hub are untouched — `PackageUpdate` events continue to flow through unchanged.
-- The `Target` and `Package` data models are untouched.
+- The `Package` data model is untouched. `Target` gains two new `omitempty` fields (`BuildReason`, `BuildReasonPackages`) that flow through the existing JSON/SSE pipeline unchanged.
 - The broad poller's discovery logic and interval are untouched.
 - The MQ consumer's immediate store write + hub notify are untouched.
