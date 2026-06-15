@@ -54,7 +54,7 @@ func (t BuildReasonTask) Run(ctx context.Context, client *Client, pkg *model.Pac
 		}
 		result, err := client.PackageBuildReason(ctx, pkg.Project, target.Repo, target.Arch, pkg.Name)
 		if err != nil {
-			slog.Warn("worker: build reason",
+			slog.Warn("obs: build reason",
 				"pkg", pkg.Name,
 				"repo", target.Repo,
 				"arch", target.Arch,
