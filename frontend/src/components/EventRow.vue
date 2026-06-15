@@ -6,7 +6,7 @@ defineProps<{ event: Event }>()
 const GLYPH: Record<EventType, string> = {
   succeeded: '✓', failed: '✗', broken: '✗', unresolvable: '⚠',
   blocked: '⊘', published: '↑', triggered: '↻', started: '▶',
-  created: '+', deleted: '−', build_started: '▶', build_finished: '■', version_change: '↕',
+  created: '+', deleted: '−', build_started: '▶', build_finished: '■', version_change: '↕', updated: '◉',
 }
 
 const GLYPH_COLOR: Record<EventType, string> = {
@@ -14,7 +14,7 @@ const GLYPH_COLOR: Record<EventType, string> = {
   unresolvable: 'var(--warn)', blocked: 'var(--blocked)',
   published: 'var(--info)', triggered: 'var(--brand-purple)', started: 'var(--info)',
   created: 'var(--ok)', deleted: 'var(--fail)', build_started: 'var(--info)',
-  build_finished: 'var(--info)', version_change: 'var(--warn)',
+  build_finished: 'var(--info)', version_change: 'var(--warn)', updated: 'var(--info)',
 }
 
 const GLYPH_BG: Record<EventType, string> = {
@@ -22,7 +22,7 @@ const GLYPH_BG: Record<EventType, string> = {
   unresolvable: 'var(--warn-tint)', blocked: 'var(--blocked-tint)',
   published: 'var(--info-tint)', triggered: 'var(--brand-purple-tint)', started: 'var(--info-tint)',
   created: 'var(--ok-tint)', deleted: 'var(--fail-tint)', build_started: 'var(--info-tint)',
-  build_finished: 'var(--info-tint)', version_change: 'var(--warn-tint)',
+  build_finished: 'var(--info-tint)', version_change: 'var(--warn-tint)', updated: 'var(--info-tint)',
 }
 
 const SCOPE_STYLE: Record<string, string> = {

@@ -1,10 +1,26 @@
 import { onMounted, onUnmounted, type Ref } from 'vue'
-import type { Package, Event } from '../types/api'
+import type { Package, PRGroup, Event } from '../types/api'
+
+const SEVERITY: Record<string, number> = {
+  broken: 5, unresolvable: 4, failed: 3, blocked: 2,
+  building: 1, finished: 1, scheduled: 1, succeeded: 0,
+}
+
+function prNumberFromProject(project: string): string {
+  const parts = project.split(':')
+  const idx = parts.findIndex(p => p.toLowerCase() === 'pr')
+  if (idx >= 0 && idx + 1 < parts.length) {
+    return parts[idx + 1].toLowerCase().replace(/^pr-/, '')
+  }
+  return ''
+}
 
 export function useRealtimeStream(
   packages: Ref<Package[]>,
   events: Ref<Event[]>,
+  prGroups: Ref<PRGroup[]>,
   refresh: () => void,
+  refreshPR: () => void,
 ): void {
   let es: EventSource | null = null
   let wasError = false
@@ -24,13 +40,37 @@ export function useRealtimeStream(
 
       if (msg.type === 'package_update') {
         const pkg = msg.data as Package
-        const idx = packages.value.findIndex(
-          (p) => p.project === pkg.project && p.name === pkg.name,
-        )
-        if (idx >= 0) {
-          packages.value[idx] = pkg
+        const prNum = prNumberFromProject(pkg.project)
+
+        if (prNum) {
+          const group = prGroups.value.find(g => g.pr === prNum)
+          if (!group) {
+            refreshPR()
+          } else {
+            const pkgIdx = group.packages.findIndex(
+              p => p.project === pkg.project && p.name === pkg.name,
+            )
+            if (pkgIdx >= 0) {
+              group.packages[pkgIdx] = pkg
+            } else {
+              group.packages.push(pkg)
+            }
+            const worst = group.packages.reduce((acc, p) => {
+              return (SEVERITY[p.rollup_state] ?? 0) > (SEVERITY[acc] ?? 0)
+                ? p.rollup_state
+                : acc
+            }, 'succeeded' as string)
+            group.rollup_state = worst as PRGroup['rollup_state']
+          }
         } else {
-          packages.value.push(pkg)
+          const idx = packages.value.findIndex(
+            p => p.project === pkg.project && p.name === pkg.name,
+          )
+          if (idx >= 0) {
+            packages.value[idx] = pkg
+          } else {
+            packages.value.push(pkg)
+          }
         }
       } else if (msg.type === 'new_event') {
         events.value.unshift(msg.data as Event)
@@ -42,7 +82,6 @@ export function useRealtimeStream(
 
     es.onerror = (): void => {
       wasError = true
-      // EventSource reconnects automatically — no manual action needed.
     }
   }
 

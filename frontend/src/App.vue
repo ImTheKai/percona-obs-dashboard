@@ -126,7 +126,7 @@ async function refresh() {
 onMounted(() => {
   refresh()
 })
-useRealtimeStream(rawPackages, events, refresh)
+useRealtimeStream(rawPackages, events, prGroups, refresh, refreshPR)
 
 // Re-fetch on version change
 watch(version, () => refresh())
