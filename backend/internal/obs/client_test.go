@@ -6,6 +6,8 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"testing"
+
+	"github.com/percona/obs-dashboard/internal/model"
 )
 
 func TestBasicAuth(t *testing.T) {
@@ -109,5 +111,57 @@ func TestPackageBlockedReasonNoError(t *testing.T) {
 	}
 	if reason != "" {
 		t.Errorf("expected empty reason, got %q", reason)
+	}
+}
+
+func TestEnrichBlockedTargets(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/xml")
+		w.Write([]byte(`<builddepinfo>
+			<package name="mypkg">
+				<pkgdep>libfoo</pkgdep>
+				<error>libfoo is not yet built</error>
+			</package>
+		</builddepinfo>`))
+	}))
+	defer srv.Close()
+
+	c := NewClient(srv.URL, "u", "p")
+	pkg := &model.Package{
+		Project: "isv:percona:ppg:17",
+		Name:    "mypkg",
+		Targets: []model.Target{
+			{Repo: "standard", Arch: "x86_64", State: "blocked"},
+			{Repo: "standard", Arch: "aarch64", State: "succeeded"},
+		},
+	}
+	EnrichBlockedTargets(context.Background(), c, pkg)
+
+	if pkg.Targets[0].BlockedBy != "libfoo is not yet built" {
+		t.Errorf("expected blocked reason, got %q", pkg.Targets[0].BlockedBy)
+	}
+	if pkg.Targets[1].BlockedBy != "" {
+		t.Errorf("non-blocked target should not have BlockedBy, got %q", pkg.Targets[1].BlockedBy)
+	}
+}
+
+func TestEnrichBlockedTargetsAPIError(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+	}))
+	defer srv.Close()
+
+	c := NewClient(srv.URL, "u", "p")
+	pkg := &model.Package{
+		Project: "isv:percona:ppg:17",
+		Name:    "mypkg",
+		Targets: []model.Target{
+			{Repo: "standard", Arch: "x86_64", State: "blocked"},
+		},
+	}
+	// Should not panic; BlockedBy stays empty on error
+	EnrichBlockedTargets(context.Background(), c, pkg)
+	if pkg.Targets[0].BlockedBy != "" {
+		t.Errorf("expected empty BlockedBy on error, got %q", pkg.Targets[0].BlockedBy)
 	}
 }
