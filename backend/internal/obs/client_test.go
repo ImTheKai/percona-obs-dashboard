@@ -6,8 +6,6 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"testing"
-
-	"github.com/percona/obs-dashboard/internal/model"
 )
 
 func TestBasicAuth(t *testing.T) {
@@ -67,102 +65,58 @@ func TestNon200Error(t *testing.T) {
 	}
 }
 
-func TestPackageBlockedReason(t *testing.T) {
+func TestPackageBlockedReasons(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.URL.Query().Get("package") != "mypkg" {
-			http.Error(w, "missing package param", http.StatusBadRequest)
+		if r.URL.Query().Get("package") != "mypkg" || r.URL.Query().Get("view") != "status" {
+			http.Error(w, "bad request", http.StatusBadRequest)
 			return
 		}
 		w.Header().Set("Content-Type", "application/xml")
-		w.Write([]byte(`<builddepinfo>
-			<package name="mypkg">
-				<pkgdep>libfoo</pkgdep>
-				<error>libfoo is not yet built</error>
-			</package>
-		</builddepinfo>`))
+		w.Write([]byte(`<resultlist>
+			<result project="isv:percona:ppg:17" repository="openSUSE_Tumbleweed" arch="x86_64" state="building">
+				<status package="mypkg" code="blocked">
+					<details>libfoo is not yet built</details>
+				</status>
+			</result>
+			<result project="isv:percona:ppg:17" repository="openSUSE_Tumbleweed" arch="aarch64" state="building">
+				<status package="mypkg" code="succeeded"/>
+			</result>
+		</resultlist>`))
 	}))
 	defer srv.Close()
 
 	c := NewClient(srv.URL, "u", "p")
-	reason, err := c.PackageBlockedReason(context.Background(), "isv:percona:ppg:17", "standard", "x86_64", "mypkg")
+	reasons, err := c.PackageBlockedReasons(context.Background(), "isv:percona:ppg:17", "mypkg")
 	if err != nil {
 		t.Fatal(err)
 	}
-	if reason != "libfoo is not yet built" {
-		t.Errorf("expected blocking reason, got %q", reason)
+	if reasons["openSUSE_Tumbleweed/x86_64"] != "libfoo is not yet built" {
+		t.Errorf("expected blocked reason for x86_64, got %q", reasons["openSUSE_Tumbleweed/x86_64"])
+	}
+	if _, ok := reasons["openSUSE_Tumbleweed/aarch64"]; ok {
+		t.Error("succeeded target should not appear in reasons map")
 	}
 }
 
-func TestPackageBlockedReasonNoError(t *testing.T) {
+func TestPackageBlockedReasonsEmpty(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/xml")
-		w.Write([]byte(`<builddepinfo>
-			<package name="mypkg">
-				<pkgdep>libfoo</pkgdep>
-			</package>
-		</builddepinfo>`))
+		w.Write([]byte(`<resultlist>
+			<result project="isv:percona:ppg:17" repository="openSUSE_Tumbleweed" arch="x86_64" state="building">
+				<status package="mypkg" code="blocked"/>
+			</result>
+		</resultlist>`))
 	}))
 	defer srv.Close()
 
 	c := NewClient(srv.URL, "u", "p")
-	reason, err := c.PackageBlockedReason(context.Background(), "isv:percona:ppg:17", "standard", "x86_64", "mypkg")
+	reasons, err := c.PackageBlockedReasons(context.Background(), "isv:percona:ppg:17", "mypkg")
 	if err != nil {
 		t.Fatal(err)
 	}
-	if reason != "" {
-		t.Errorf("expected empty reason, got %q", reason)
-	}
-}
-
-func TestEnrichBlockedTargets(t *testing.T) {
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Content-Type", "application/xml")
-		w.Write([]byte(`<builddepinfo>
-			<package name="mypkg">
-				<pkgdep>libfoo</pkgdep>
-				<error>libfoo is not yet built</error>
-			</package>
-		</builddepinfo>`))
-	}))
-	defer srv.Close()
-
-	c := NewClient(srv.URL, "u", "p")
-	pkg := &model.Package{
-		Project: "isv:percona:ppg:17",
-		Name:    "mypkg",
-		Targets: []model.Target{
-			{Repo: "standard", Arch: "x86_64", State: "blocked"},
-			{Repo: "standard", Arch: "aarch64", State: "succeeded"},
-		},
-	}
-	EnrichBlockedTargets(context.Background(), c, pkg)
-
-	if pkg.Targets[0].BlockedBy != "libfoo is not yet built" {
-		t.Errorf("expected blocked reason, got %q", pkg.Targets[0].BlockedBy)
-	}
-	if pkg.Targets[1].BlockedBy != "" {
-		t.Errorf("non-blocked target should not have BlockedBy, got %q", pkg.Targets[1].BlockedBy)
-	}
-}
-
-func TestEnrichBlockedTargetsAPIError(t *testing.T) {
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
-	}))
-	defer srv.Close()
-
-	c := NewClient(srv.URL, "u", "p")
-	pkg := &model.Package{
-		Project: "isv:percona:ppg:17",
-		Name:    "mypkg",
-		Targets: []model.Target{
-			{Repo: "standard", Arch: "x86_64", State: "blocked"},
-		},
-	}
-	// Should not panic; BlockedBy stays empty on error
-	EnrichBlockedTargets(context.Background(), c, pkg)
-	if pkg.Targets[0].BlockedBy != "" {
-		t.Errorf("expected empty BlockedBy on error, got %q", pkg.Targets[0].BlockedBy)
+	// blocked with no <details> → omitted from map
+	if len(reasons) != 0 {
+		t.Errorf("expected empty map, got %v", reasons)
 	}
 }
 

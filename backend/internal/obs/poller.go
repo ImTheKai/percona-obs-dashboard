@@ -208,25 +208,6 @@ func skipState(state string) bool {
 	return false
 }
 
-// EnrichBlockedTargets populates BlockedBy for each blocked target in pkg.
-// Errors are logged as warnings and do not stop enrichment of other targets.
-func EnrichBlockedTargets(ctx context.Context, client *Client, pkg *model.Package) {
-	if client == nil {
-		return
-	}
-	for i, t := range pkg.Targets {
-		if t.State != "blocked" {
-			continue
-		}
-		reason, err := client.PackageBlockedReason(ctx, pkg.Project, t.Repo, t.Arch, pkg.Name)
-		if err != nil {
-			slog.Warn("poller: blocked reason", "pkg", pkg.Name, "repo", t.Repo, "arch", t.Arch, "err", err)
-			continue
-		}
-		pkg.Targets[i].BlockedBy = reason
-	}
-}
-
 // buildPackage aggregates target states into a Package with worst-case rollup.
 // Targets with state disabled/excluded/locked are silently dropped.
 func buildPackage(project, name string, scope model.Scope, targets []PackageBuildState) *model.Package {

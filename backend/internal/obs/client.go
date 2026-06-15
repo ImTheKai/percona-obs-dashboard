@@ -70,6 +70,7 @@ type buildResult struct {
 type buildStatus struct {
 	Package string `xml:"package,attr"`
 	Code    string `xml:"code,attr"`
+	Details string `xml:"details"`
 }
 
 // HistoryEntry represents one entry from /_history.
@@ -219,29 +220,32 @@ func (c *Client) BuildDepInfo(ctx context.Context, project, repo, arch string) (
 	return result.Packages, nil
 }
 
-// PackageBlockedReason returns the blocking reason for a specific package in a
-// given (project, repo, arch) tuple, as reported by OBS _builddepinfo.
-// Returns ("", nil) when the package entry has no error element.
-func (c *Client) PackageBlockedReason(ctx context.Context, project, repo, arch, pkg string) (string, error) {
-	path := fmt.Sprintf("/build/%s/%s/%s/_builddepinfo?package=%s", project, repo, arch, pkg)
+// PackageBlockedReasons returns a map of "repo/arch" → blocked reason for all
+// blocked targets of pkg in project, using the _result?view=status endpoint.
+// Targets with no details or not in blocked state are omitted from the map.
+func (c *Client) PackageBlockedReasons(ctx context.Context, project, pkg string) (map[string]string, error) {
+	path := fmt.Sprintf("/build/%s/_result?package=%s&view=status",
+		url.PathEscape(project), url.QueryEscape(pkg))
 	resp, err := c.get(ctx, path)
 	if err != nil {
-		return "", err
+		return nil, err
 	}
 	defer resp.Body.Close()
 
-	var result struct {
-		Packages []DepInfo `xml:"package"`
+	var rl resultList
+	if err := xml.NewDecoder(resp.Body).Decode(&rl); err != nil {
+		return nil, fmt.Errorf("parse /build/%s/_result: %w", project, err)
 	}
-	if err := xml.NewDecoder(resp.Body).Decode(&result); err != nil {
-		return "", fmt.Errorf("parse _builddepinfo for %s/%s/%s/%s: %w", project, repo, arch, pkg, err)
-	}
-	for _, d := range result.Packages {
-		if d.Package == pkg {
-			return d.Error, nil
+
+	reasons := make(map[string]string)
+	for _, r := range rl.Results {
+		for _, s := range r.Statuses {
+			if s.Code == "blocked" && s.Details != "" {
+				reasons[r.Repository+"/"+r.Arch] = s.Details
+			}
 		}
 	}
-	return "", nil
+	return reasons, nil
 }
 
 // SourceHistory returns commit history for a source package.

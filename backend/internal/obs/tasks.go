@@ -40,7 +40,17 @@ func (t BuildStateTask) Run(ctx context.Context, client *Client, pkg *model.Pack
 type BlockedReasonTask struct{}
 
 func (t BlockedReasonTask) Run(ctx context.Context, client *Client, pkg *model.Package) error {
-	EnrichBlockedTargets(ctx, client, pkg)
+	reasons, err := client.PackageBlockedReasons(ctx, pkg.Project, pkg.Name)
+	if err != nil {
+		slog.Warn("obs: blocked reasons", "pkg", pkg.Name, "err", err)
+		return nil
+	}
+	for i, target := range pkg.Targets {
+		if target.State != "blocked" {
+			continue
+		}
+		pkg.Targets[i].BlockedBy = reasons[target.Repo+"/"+target.Arch]
+	}
 	return nil
 }
 

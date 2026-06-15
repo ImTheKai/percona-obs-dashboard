@@ -46,11 +46,13 @@ func TestBuildStateTask(t *testing.T) {
 
 func TestBlockedReasonTask(t *testing.T) {
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		fmt.Fprint(w, `<builddepinfo>
-          <package name="mypkg">
-            <error>not installable</error>
-          </package>
-        </builddepinfo>`)
+		fmt.Fprint(w, `<resultlist>
+          <result project="isv:percona" repository="repo" arch="x86_64" state="building">
+            <status package="mypkg" code="blocked">
+              <details>not installable</details>
+            </status>
+          </result>
+        </resultlist>`)
 	}))
 	defer ts.Close()
 
@@ -68,8 +70,8 @@ func TestBlockedReasonTask(t *testing.T) {
 	if err := task.Run(context.Background(), c, pkg); err != nil {
 		t.Fatal(err)
 	}
-	if pkg.Targets[0].BlockedBy == "" {
-		t.Error("expected BlockedBy to be set")
+	if pkg.Targets[0].BlockedBy != "not installable" {
+		t.Errorf("expected BlockedBy to be set, got %q", pkg.Targets[0].BlockedBy)
 	}
 }
 
