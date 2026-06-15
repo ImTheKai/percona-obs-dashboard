@@ -198,6 +198,14 @@ func (c *Consumer) handle(ctx context.Context, msg amqp.Delivery) {
 			At:      time.Now().UTC(),
 		}
 		c.appendEvent(evt)
+		finished, err := store.GetFinishedPackagesByProject(c.db, m.Project)
+		if err != nil {
+			slog.Warn("mq: get finished packages for publish signal", "project", m.Project, "err", err)
+		} else {
+			for _, pkg := range finished {
+				c.ws.Signal(pkg)
+			}
+		}
 
 	case key == repoBuildStartedKey:
 		evt := &model.Event{
@@ -267,6 +275,66 @@ func (c *Consumer) handle(ctx context.Context, msg amqp.Delivery) {
 			Project: m.Project,
 			Package: m.Package,
 			What:    fmt.Sprintf("%s version %s → %s", m.Package, m.OldVersion, m.NewVersion),
+			Why:     m.Comment,
+			URL:     fmt.Sprintf("https://build.opensuse.org/package/show/%s/%s", m.Project, m.Package),
+			At:      time.Now().UTC(),
+		}
+		c.appendEvent(evt)
+
+	case key == "opensuse.obs.package.create":
+		evt := &model.Event{
+			ID:      "evt_" + ulid.Make().String(),
+			Type:    model.EventCreated,
+			Scope:   inferScopeFromProject(m.Project),
+			Project: m.Project,
+			Package: m.Package,
+			What:    fmt.Sprintf("package %s created", m.Package),
+			Why:     m.Sender,
+			URL:     fmt.Sprintf("https://build.opensuse.org/package/show/%s/%s", m.Project, m.Package),
+			At:      time.Now().UTC(),
+		}
+		c.appendEvent(evt)
+		stub := &model.Package{
+			Project: m.Project,
+			Name:    m.Package,
+			Scope:   inferScopeFromProject(m.Project),
+		}
+		c.ws.Signal(stub)
+
+	case key == "opensuse.obs.project.update":
+		evt := &model.Event{
+			ID:      "evt_" + ulid.Make().String(),
+			Type:    model.EventUpdated,
+			Scope:   inferScopeFromProject(m.Project),
+			Project: m.Project,
+			What:    fmt.Sprintf("project %s updated", m.Project),
+			Why:     m.Sender,
+			URL:     fmt.Sprintf("https://build.opensuse.org/project/show/%s", m.Project),
+			At:      time.Now().UTC(),
+		}
+		c.appendEvent(evt)
+
+	case key == "opensuse.obs.project.update_project_conf":
+		evt := &model.Event{
+			ID:      "evt_" + ulid.Make().String(),
+			Type:    model.EventUpdated,
+			Scope:   inferScopeFromProject(m.Project),
+			Project: m.Project,
+			What:    fmt.Sprintf("project %s configuration updated", m.Project),
+			Why:     m.Sender,
+			URL:     fmt.Sprintf("https://build.opensuse.org/project/show/%s", m.Project),
+			At:      time.Now().UTC(),
+		}
+		c.appendEvent(evt)
+
+	case key == "opensuse.obs.package.commit":
+		evt := &model.Event{
+			ID:      "evt_" + ulid.Make().String(),
+			Type:    model.EventUpdated,
+			Scope:   inferScopeFromProject(m.Project),
+			Project: m.Project,
+			Package: m.Package,
+			What:    fmt.Sprintf("%s committed (rev %s)", m.Package, m.Rev),
 			Why:     m.Comment,
 			URL:     fmt.Sprintf("https://build.opensuse.org/package/show/%s/%s", m.Project, m.Package),
 			At:      time.Now().UTC(),
