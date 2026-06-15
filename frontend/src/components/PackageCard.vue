@@ -132,7 +132,8 @@ function timeAgo(iso: string): string {
           </div>
           <span
             v-if="t.state === 'blocked' && t.blocked_by"
-            style="font-family: var(--font-mono); font-size: 10.5px; color: var(--text-muted); padding-left: 17px;"
+            :title="t.blocked_by"
+            style="font-family: var(--font-mono); font-size: 10.5px; color: var(--text-muted); padding-left: calc(8px + 9px); overflow: hidden; text-overflow: ellipsis; white-space: nowrap;"
           >{{ t.blocked_by }}</span>
         </a>
         <button
