@@ -47,9 +47,10 @@ const (
 )
 
 type Target struct {
-	Repo  string `json:"repo"`
-	Arch  string `json:"arch"`
-	State string `json:"state"`
+	Repo      string `json:"repo"`
+	Arch      string `json:"arch"`
+	State     string `json:"state"`
+	BlockedBy string `json:"blocked_by,omitempty"`
 }
 
 type Trigger struct {

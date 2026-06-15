@@ -64,3 +64,50 @@ func TestNon200Error(t *testing.T) {
 		t.Fatal("expected error for 401")
 	}
 }
+
+func TestPackageBlockedReason(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Query().Get("package") != "mypkg" {
+			http.Error(w, "missing package param", http.StatusBadRequest)
+			return
+		}
+		w.Header().Set("Content-Type", "application/xml")
+		w.Write([]byte(`<builddepinfo>
+			<package name="mypkg">
+				<pkgdep>libfoo</pkgdep>
+				<error>libfoo is not yet built</error>
+			</package>
+		</builddepinfo>`))
+	}))
+	defer srv.Close()
+
+	c := NewClient(srv.URL, "u", "p")
+	reason, err := c.PackageBlockedReason(context.Background(), "isv:percona:ppg:17", "standard", "x86_64", "mypkg")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if reason != "libfoo is not yet built" {
+		t.Errorf("expected blocking reason, got %q", reason)
+	}
+}
+
+func TestPackageBlockedReasonNoError(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/xml")
+		w.Write([]byte(`<builddepinfo>
+			<package name="mypkg">
+				<pkgdep>libfoo</pkgdep>
+			</package>
+		</builddepinfo>`))
+	}))
+	defer srv.Close()
+
+	c := NewClient(srv.URL, "u", "p")
+	reason, err := c.PackageBlockedReason(context.Background(), "isv:percona:ppg:17", "standard", "x86_64", "mypkg")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if reason != "" {
+		t.Errorf("expected empty reason, got %q", reason)
+	}
+}

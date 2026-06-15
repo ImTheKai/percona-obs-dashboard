@@ -79,8 +79,9 @@ type HistoryEntry struct {
 
 // DepInfo represents a package dependency from /_builddepinfo.
 type DepInfo struct {
-	Package string   `xml:"package,attr"`
+	Package string   `xml:"name,attr"`
 	Deps    []string `xml:"pkgdep"`
+	Error   string   `xml:"error"`
 }
 
 // SourceCommit represents one entry from /source/<project>/<pkg>/_history.
@@ -200,6 +201,31 @@ func (c *Client) BuildDepInfo(ctx context.Context, project, repo, arch string) (
 		return nil, err
 	}
 	return result.Packages, nil
+}
+
+// PackageBlockedReason returns the blocking reason for a specific package in a
+// given (project, repo, arch) tuple, as reported by OBS _builddepinfo.
+// Returns ("", nil) when the package entry has no error element.
+func (c *Client) PackageBlockedReason(ctx context.Context, project, repo, arch, pkg string) (string, error) {
+	path := fmt.Sprintf("/build/%s/%s/%s/_builddepinfo?package=%s", project, repo, arch, pkg)
+	resp, err := c.get(ctx, path)
+	if err != nil {
+		return "", err
+	}
+	defer resp.Body.Close()
+
+	var result struct {
+		Packages []DepInfo `xml:"package"`
+	}
+	if err := xml.NewDecoder(resp.Body).Decode(&result); err != nil {
+		return "", fmt.Errorf("parse _builddepinfo for %s/%s/%s/%s: %w", project, repo, arch, pkg, err)
+	}
+	for _, d := range result.Packages {
+		if d.Package == pkg {
+			return d.Error, nil
+		}
+	}
+	return "", nil
 }
 
 // SourceHistory returns commit history for a source package.
