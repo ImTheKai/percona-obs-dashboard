@@ -129,3 +129,73 @@ func TestGetActivePackages(t *testing.T) {
 		t.Errorf("expected pkg-fail, got %s", pkgs[0].Name)
 	}
 }
+
+func TestGetFinishedPackagesByProject(t *testing.T) {
+	db, err := Open(":memory:")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer db.Close()
+
+	now := time.Now().UTC().Truncate(time.Second)
+
+	pkgFinished1 := &model.Package{
+		Project: "isv:percona:ppg:17", Name: "postgres17", Scope: model.ScopeVersion,
+		RollupState: model.RollupFinished, OKTargets: 0, TotalTargets: 1,
+		Targets: []model.Target{{Repo: "Percona-PPG-17", Arch: "x86_64", State: "finished"}},
+		UpdatedAt: now,
+	}
+	pkgFinished2 := &model.Package{
+		Project: "isv:percona:ppg:17", Name: "pgaudit17", Scope: model.ScopeVersion,
+		RollupState: model.RollupFinished, OKTargets: 0, TotalTargets: 1,
+		Targets: []model.Target{{Repo: "Percona-PPG-17", Arch: "aarch64", State: "finished"}},
+		UpdatedAt: now,
+	}
+	pkgSucceeded := &model.Package{
+		Project: "isv:percona:ppg:17", Name: "pg_stat_monitor", Scope: model.ScopeVersion,
+		RollupState: model.RollupSucceeded, OKTargets: 1, TotalTargets: 1,
+		Targets: []model.Target{{Repo: "Percona-PPG-17", Arch: "x86_64", State: "succeeded"}},
+		UpdatedAt: now,
+	}
+	pkgOtherProject := &model.Package{
+		Project: "isv:percona:ppg:16", Name: "postgres16", Scope: model.ScopeVersion,
+		RollupState: model.RollupFinished, OKTargets: 0, TotalTargets: 1,
+		Targets: []model.Target{{Repo: "Percona-PPG-16", Arch: "x86_64", State: "finished"}},
+		UpdatedAt: now,
+	}
+	for _, pkg := range []*model.Package{pkgFinished1, pkgFinished2, pkgSucceeded, pkgOtherProject} {
+		if err := UpsertPackageState(db, pkg); err != nil {
+			t.Fatalf("seed: %v", err)
+		}
+	}
+
+	got, err := GetFinishedPackagesByProject(db, "isv:percona:ppg:17")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(got) != 2 {
+		t.Fatalf("want 2 finished packages, got %d", len(got))
+	}
+	names := map[string]bool{}
+	for _, p := range got {
+		names[p.Name] = true
+		if p.RollupState != model.RollupFinished {
+			t.Errorf("package %s: want RollupFinished, got %s", p.Name, p.RollupState)
+		}
+		if p.Project != "isv:percona:ppg:17" {
+			t.Errorf("package %s: wrong project %s", p.Name, p.Project)
+		}
+	}
+	if !names["postgres17"] || !names["pgaudit17"] {
+		t.Errorf("wrong packages returned: %v", names)
+	}
+
+	// Empty result case
+	got2, err := GetFinishedPackagesByProject(db, "isv:percona:ppg:99")
+	if err != nil {
+		t.Fatalf("unexpected error on empty: %v", err)
+	}
+	if len(got2) != 0 {
+		t.Errorf("want 0 packages for unknown project, got %d", len(got2))
+	}
+}

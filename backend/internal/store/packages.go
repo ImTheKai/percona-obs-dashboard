@@ -108,3 +108,20 @@ func GetActivePackages(db *sql.DB) ([]*model.Package, error) {
 	defer rows.Close()
 	return scanPackages(rows)
 }
+
+// GetFinishedPackagesByProject returns all packages for the given project with
+// rollup_state = 'finished'. Used by the MQ consumer on repo.published to signal
+// packages for the finished → succeeded transition via the worker pool.
+func GetFinishedPackagesByProject(db *sql.DB, project string) ([]*model.Package, error) {
+	rows, err := db.Query(`
+		SELECT project, name, scope, rollup_state, ok_targets, total_targets,
+		       trigger_what, trigger_kind, trigger_at, targets_json, updated_at
+		FROM packages WHERE project = ? AND rollup_state = 'finished'`,
+		project,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	return scanPackages(rows)
+}
