@@ -9,9 +9,10 @@ import (
 	"time"
 
 	"github.com/oklog/ulid/v2"
+	hubpkg "github.com/percona/obs-dashboard/internal/hub"
 	"github.com/percona/obs-dashboard/internal/model"
 	"github.com/percona/obs-dashboard/internal/store"
-	hubpkg "github.com/percona/obs-dashboard/internal/hub"
+	"github.com/percona/obs-dashboard/internal/workingset"
 )
 
 // Poller periodically fetches OBS build results and reconciles them with the store.
@@ -21,10 +22,11 @@ type Poller struct {
 	interval time.Duration
 	root     string
 	hub      *hubpkg.Hub
+	ws       *workingset.WorkingSet
 }
 
-func NewPoller(client *Client, db *sql.DB, interval time.Duration, h *hubpkg.Hub) *Poller {
-	return &Poller{client: client, db: db, interval: interval, root: "isv:percona", hub: h}
+func NewPoller(client *Client, db *sql.DB, interval time.Duration, h *hubpkg.Hub, ws *workingset.WorkingSet) *Poller {
+	return &Poller{client: client, db: db, interval: interval, root: "isv:percona", hub: h, ws: ws}
 }
 
 // Run blocks until ctx is cancelled. It ticks immediately on first call.
@@ -85,7 +87,6 @@ func (p *Poller) tick(ctx context.Context) {
 		scope := InferScope(project)
 		for pkgName, targets := range byPkg {
 			pkg := buildPackage(project, pkgName, scope, targets)
-			EnrichBlockedTargets(ctx, p.client, pkg)
 			key := project + "/" + pkgName
 			prev := byKey[key]
 
@@ -96,6 +97,7 @@ func (p *Poller) tick(ctx context.Context) {
 					continue
 				}
 				p.hub.Notify(hubpkg.PackageUpdate(pkg))
+				p.ws.Add(pkg)
 				if rollupChanged {
 					evt := stateChangeEvent(pkg, prev)
 					if err := store.AppendEvent(p.db, evt); err != nil {

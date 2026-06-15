@@ -14,6 +14,7 @@ import (
 	"github.com/percona/obs-dashboard/internal/model"
 	"github.com/percona/obs-dashboard/internal/obs"
 	"github.com/percona/obs-dashboard/internal/store"
+	"github.com/percona/obs-dashboard/internal/workingset"
 	amqp "github.com/rabbitmq/amqp091-go"
 )
 
@@ -49,10 +50,11 @@ type Consumer struct {
 	db        *sql.DB
 	hub       *hubpkg.Hub
 	obsClient *obs.Client
+	ws        *workingset.WorkingSet
 }
 
-func NewConsumer(url string, db *sql.DB, h *hubpkg.Hub, obsClient *obs.Client) *Consumer {
-	return &Consumer{url: url, db: db, hub: h, obsClient: obsClient}
+func NewConsumer(url string, db *sql.DB, h *hubpkg.Hub, obsClient *obs.Client, ws *workingset.WorkingSet) *Consumer {
+	return &Consumer{url: url, db: db, hub: h, obsClient: obsClient, ws: ws}
 }
 
 // appendEvent writes evt to the store and notifies SSE clients.
@@ -300,12 +302,11 @@ func (c *Consumer) handle(ctx context.Context, msg amqp.Delivery) {
 		// full target list so we don't overwrite other (repo, arch) entries.
 		pkg := c.mergePackageTarget(m, scope, rollup)
 
-		obs.EnrichBlockedTargets(ctx, c.obsClient, pkg)
-
 		if err := c.upsertPackage(pkg); err != nil {
 			slog.Error("mq: upsert package", "err", err)
 			return
 		}
+		c.ws.Signal(pkg)
 		evt := &model.Event{
 			ID:      "evt_" + ulid.Make().String(),
 			Type:    evtType,

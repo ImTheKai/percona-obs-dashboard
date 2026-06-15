@@ -17,6 +17,8 @@ import (
 	"github.com/percona/obs-dashboard/internal/mq"
 	"github.com/percona/obs-dashboard/internal/obs"
 	"github.com/percona/obs-dashboard/internal/store"
+	"github.com/percona/obs-dashboard/internal/worker"
+	"github.com/percona/obs-dashboard/internal/workingset"
 )
 
 func main() {
@@ -43,8 +45,25 @@ func run() error {
 
 	obsClient := obs.NewClient(cfg.OBS.BaseURL, cfg.OBS.Username, cfg.OBS.Password)
 	h := hub.New()
-	poller := obs.NewPoller(obsClient, db, cfg.Poller.Interval, h)
-	consumer := mq.NewConsumer(cfg.MQ.URL, db, h, obsClient)
+
+	activePkgs, err := store.GetActivePackages(db)
+	if err != nil {
+		return fmt.Errorf("seed working set: %w", err)
+	}
+	ws := workingset.New(cfg.WorkerPool.QueueSize)
+	ws.Seed(activePkgs)
+
+	tasks := []worker.Task{
+		obs.BuildStateTask{},
+		obs.BlockedReasonTask{},
+		obs.BuildReasonTask{},
+	}
+	pool := worker.NewPool(cfg.WorkerPool.Size, tasks, obsClient, db, h, ws)
+	pool.Start(ctx)
+	ws.StartScheduler(ctx, cfg.WorkerPool.PollInterval)
+
+	poller := obs.NewPoller(obsClient, db, cfg.Poller.Interval, h, ws)
+	consumer := mq.NewConsumer(cfg.MQ.URL, db, h, obsClient, ws)
 
 	go poller.Run(ctx)
 	go consumer.Run(ctx)
