@@ -19,6 +19,7 @@ export interface Target {
   arch: string
   state: BuildState
   blocked_by?: string
+  build_reason?: string
 }
 
 export interface Package {
