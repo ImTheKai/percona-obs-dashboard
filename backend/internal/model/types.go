@@ -47,12 +47,12 @@ const (
 )
 
 type Target struct {
-	Repo                  string   `json:"repo"`
-	Arch                  string   `json:"arch"`
-	State                 string   `json:"state"`
-	BlockedBy             string   `json:"blocked_by,omitempty"`
-	BuildReason           string   `json:"build_reason,omitempty"`
-	BuildReasonPackages   []string `json:"build_reason_packages,omitempty"`
+	Repo                string   `json:"repo"`
+	Arch                string   `json:"arch"`
+	State               string   `json:"state"`
+	BlockedBy           string   `json:"blocked_by,omitempty"`
+	BuildReason         string   `json:"build_reason,omitempty"`
+	BuildReasonPackages []string `json:"build_reason_packages,omitempty"`
 }
 
 type Trigger struct {
@@ -76,17 +76,17 @@ type Package struct {
 type EventType string
 
 const (
-	EventTriggered    EventType = "triggered"
-	EventStarted      EventType = "started"
-	EventSucceeded    EventType = "succeeded"
-	EventFailed       EventType = "failed"
-	EventUnresolvable EventType = "unresolvable"
-	EventBroken       EventType = "broken"
-	EventBlocked      EventType = "blocked"
-	EventPublished    EventType = "published"
-	EventCreated      EventType = "created"
-	EventDeleted      EventType = "deleted"
-	EventBuildStarted EventType = "build_started"
+	EventTriggered     EventType = "triggered"
+	EventStarted       EventType = "started"
+	EventSucceeded     EventType = "succeeded"
+	EventFailed        EventType = "failed"
+	EventUnresolvable  EventType = "unresolvable"
+	EventBroken        EventType = "broken"
+	EventBlocked       EventType = "blocked"
+	EventPublished     EventType = "published"
+	EventCreated       EventType = "created"
+	EventDeleted       EventType = "deleted"
+	EventBuildStarted  EventType = "build_started"
 	EventBuildFinished EventType = "build_finished"
 	EventVersionChange EventType = "version_change"
 )

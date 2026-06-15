@@ -43,9 +43,9 @@ type ServerConfig struct {
 }
 
 type WorkerPoolConfig struct {
-	Size         int           `mapstructure:"size"`
-	PollInterval time.Duration `mapstructure:"poll_interval"`
-	QueueSize    int           `mapstructure:"queue_size"`
+	Size         int
+	PollInterval time.Duration
+	QueueSize    int
 }
 
 func Load() (*Config, error) {
@@ -59,7 +59,7 @@ func Load() (*Config, error) {
 	v.SetDefault("server.http_port", 8080)
 	v.SetDefault("server.frontend_dir", "")
 	v.SetDefault("worker_pool.size", 5)
-	v.SetDefault("worker_pool.poll_interval", 30*time.Second)
+	v.SetDefault("worker_pool.poll_interval", "30s")
 	v.SetDefault("worker_pool.queue_size", 512)
 
 	// Config file (optional)
@@ -111,7 +111,7 @@ func Load() (*Config, error) {
 			Password: v.GetString("obs.password"),
 			BaseURL:  strings.TrimRight(v.GetString("obs.base_url"), "/"),
 		},
-		MQ: MQConfig{URL: v.GetString("mq.url")},
+		MQ:     MQConfig{URL: v.GetString("mq.url")},
 		Poller: PollerConfig{Interval: pollInterval},
 		Store: StoreConfig{
 			DBPath:         v.GetString("store.db_path"),

@@ -120,7 +120,7 @@ type buildReasonXML struct {
 // (exclusive of the prefix itself). Uses the OBS search API.
 func (c *Client) SearchProjects(ctx context.Context, prefix string) ([]string, error) {
 	// XPath: starts-with(@name,'prefix:') to catch all sub-namespaces
-	path := "/search/project/id?match=starts-with(@name,'" + prefix + ":"  + "')"
+	path := "/search/project/id?match=starts-with(@name,'" + prefix + ":" + "')"
 	resp, err := c.get(ctx, path)
 	if err != nil {
 		return nil, err
