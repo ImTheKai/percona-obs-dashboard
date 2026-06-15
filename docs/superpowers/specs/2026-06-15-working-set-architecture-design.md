@@ -134,7 +134,7 @@ func (t BlockedReasonTask) Run(ctx context.Context, client *Client, pkg *model.P
 ```go
 type WorkerPoolConfig struct {
     Size      int           `env:"WORKER_POOL_SIZE"      default:"5"`
-    Interval  time.Duration `env:"WORKER_POOL_INTERVAL"  default:"30s"`
+    PollInterval  time.Duration `env:"WORKER_POOL_POLL_INTERVAL"  default:"30s"`
     QueueSize int           `env:"WORKER_POOL_QUEUE_SIZE" default:"512"`
 }
 ```
@@ -143,7 +143,7 @@ type WorkerPoolConfig struct {
 ```yaml
 worker_pool:
   size: 5
-  interval: 30s
+  poll_interval: 30s
   queue_size: 512
 ```
 
@@ -209,7 +209,7 @@ pool := worker.NewPool(cfg.WorkerPool.Size, tasks, obsClient, db, hub, ws)
 pool.Start(ctx)
 
 // Start working set scheduler
-ws.StartScheduler(ctx, cfg.WorkerPool.Interval)
+ws.StartScheduler(ctx, cfg.WorkerPool.PollInterval)
 
 // Pass ws to poller and consumer
 poller := obs.NewPoller(..., ws)
