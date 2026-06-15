@@ -110,12 +110,12 @@ type BuildReasonResult struct {
 }
 
 type buildReasonChangeXML struct {
-	Name string `xml:",chardata"`
+	Key string `xml:"key,attr"`
 }
 
 type buildReasonXML struct {
 	Explain string                 `xml:"explain"`
-	Changes []buildReasonChangeXML `xml:"packagechange>change"`
+	Changes []buildReasonChangeXML `xml:"packagechange"`
 }
 
 // SearchProjects returns all OBS projects whose names start with the given prefix
@@ -320,11 +320,9 @@ func (c *Client) PackageBuildReason(ctx context.Context, project, repo, arch, pk
 	}
 
 	result := BuildReasonResult{Explain: raw.Explain}
-	if raw.Explain == "meta change" {
-		for _, ch := range raw.Changes {
-			if ch.Name != "" {
-				result.Packages = append(result.Packages, ch.Name)
-			}
+	for _, ch := range raw.Changes {
+		if ch.Key != "" {
+			result.Packages = append(result.Packages, ch.Key)
 		}
 	}
 	return result, nil

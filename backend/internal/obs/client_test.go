@@ -164,10 +164,8 @@ func TestPackageBuildReason(t *testing.T) {
 			w.Write([]byte(`<reason>
 			  <explain>meta change</explain>
 			  <time>1234567890</time>
-			  <packagechange>
-				<change revision="abc">libfoo</change>
-				<change revision="def">libbar</change>
-			  </packagechange>
+			  <packagechange change="md5sum" key="libfoo"/>
+			  <packagechange change="md5sum" key="libbar"/>
 			</reason>`))
 		} else {
 			http.NotFound(w, r)

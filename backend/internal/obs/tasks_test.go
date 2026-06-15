@@ -79,9 +79,7 @@ func TestBuildReasonTask(t *testing.T) {
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		fmt.Fprint(w, `<reason>
           <explain>meta change</explain>
-          <packagechange>
-            <change revision="abc">libfoo</change>
-          </packagechange>
+          <packagechange change="md5sum" key="libfoo"/>
         </reason>`)
 	}))
 	defer ts.Close()

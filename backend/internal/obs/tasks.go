@@ -75,11 +75,7 @@ func (t BuildReasonTask) Run(ctx context.Context, client *Client, pkg *model.Pac
 			continue
 		}
 		pkg.Targets[i].BuildReason = result.Explain
-		if result.Explain == "meta change" {
-			pkg.Targets[i].BuildReasonPackages = result.Packages
-		} else {
-			pkg.Targets[i].BuildReasonPackages = nil
-		}
+		pkg.Targets[i].BuildReasonPackages = result.Packages
 	}
 	return nil
 }

@@ -21,6 +21,7 @@ export interface Target {
   details?: string
   blocked_by?: string
   build_reason?: string
+  build_reason_packages?: string[]
 }
 
 export interface Package {
