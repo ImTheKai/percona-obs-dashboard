@@ -84,9 +84,6 @@ function targetDotColor(t: Target): string {
   return STATE_COLOR[t.state] ?? 'var(--blocked)'
 }
 
-function targetLabelColor(t: Target): string {
-  return targetDotColor(t)
-}
 
 function targetBg(t: Target): string {
   if (t.state === 'finished') {
@@ -104,10 +101,10 @@ function buildReasonText(t: Target): string {
 }
 
 function stateDetailLabel(t: Target): string {
-  if (t.state === 'blocked') return 'Waiting for'
-  if (t.state === 'finished') return 'Build outcome'
-  if (t.state === 'unresolvable') return 'Unresolvable'
-  if (t.state === 'broken') return 'Broken'
+  if (t.state === 'blocked') return 'WAITING FOR'
+  if (t.state === 'finished') return 'BUILD OUTCOME'
+  if (t.state === 'unresolvable') return 'UNRESOLVABLE'
+  if (t.state === 'broken') return 'BROKEN'
   return ''
 }
 
@@ -203,7 +200,7 @@ function logUrl(repo: string, arch: string): string {
           >
             <span :style="{ width: '8px', height: '8px', borderRadius: '2px', background: targetDotColor(t), flexShrink: '0' }"></span>
             <code style="font-family: var(--font-mono); font-size: 11.5px; color: var(--text-primary); flex-shrink: 0;">{{ t.repo }}/{{ t.arch }}</code>
-            <span :style="{ fontSize: '11px', color: targetLabelColor(t), marginLeft: 'auto', fontWeight: '600', flexShrink: '0' }">{{ STATE_LABEL[t.state] ?? t.state }}</span>
+            <span :style="{ fontSize: '11px', color: targetDotColor(t), marginLeft: 'auto', fontWeight: '600', flexShrink: '0' }">{{ STATE_LABEL[t.state] ?? t.state }}</span>
             <a
               :href="logUrl(t.repo, t.arch)"
               target="_blank"
