@@ -16,6 +16,10 @@ const buildingCount = computed(() => props.packages.filter(p => p.rollup_state =
 const attentionCount = computed(() => total.value - okCount.value)
 const progressWidth = computed(() => total.value > 0 ? Math.round((okCount.value / total.value) * 100) : 0)
 const allGreen = computed(() => total.value > 0 && okCount.value === total.value)
+const hasFailures = computed(() => props.packages.some(p =>
+  p.rollup_state === 'failed' || p.rollup_state === 'broken' || p.rollup_state === 'unresolvable'
+))
+const activeColor = computed(() => hasFailures.value ? 'var(--fail)' : 'var(--warn)')
 
 const breakdown = computed(() => {
   const items = []
@@ -39,7 +43,7 @@ const breakdown = computed(() => {
         <span style="font-size: 15px; color: var(--text-secondary); font-weight: 600;">packages built</span>
       </div>
       <div style="height: 9px; border-radius: 99px; background: var(--bg-muted); overflow: hidden;">
-        <div :style="{ height: '100%', background: allGreen ? 'var(--ok)' : 'var(--fail)', borderRadius: '99px', width: `${progressWidth}%`, transition: 'width 0.3s ease' }"></div>
+        <div :style="{ height: '100%', background: allGreen ? 'var(--ok)' : activeColor, borderRadius: '99px', width: `${progressWidth}%`, transition: 'width 0.3s ease' }"></div>
       </div>
       <span style="font-size: 12px; color: var(--text-muted);">{{ okTargets }}/{{ totalTargets }} build targets green</span>
     </div>
@@ -47,7 +51,7 @@ const breakdown = computed(() => {
     <!-- Right: attention label + pills -->
     <div v-if="total > 0" style="display: flex; flex-direction: column; gap: 9px;">
       <span v-if="allGreen" style="font-size: 13px; font-weight: 700; color: var(--ok);">✓ All packages green</span>
-      <span v-else style="font-size: 13px; font-weight: 700; color: var(--fail);">{{ attentionCount }} package{{ attentionCount !== 1 ? 's' : '' }} need attention</span>
+      <span v-else :style="{ fontSize: '13px', fontWeight: '700', color: activeColor }">{{ attentionCount }} package{{ attentionCount !== 1 ? 's' : '' }} need attention</span>
       <div style="display: flex; gap: 8px; flex-wrap: wrap; max-width: 520px;">
         <span
           v-for="b in breakdown"
