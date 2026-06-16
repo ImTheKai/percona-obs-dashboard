@@ -119,8 +119,10 @@ func (p *Pool) emitBuildEvents(pkg *model.Package, oldTargets []model.Target) {
 		key := t.Repo + "/" + t.Arch
 		old := oldByKey[key]
 
-		// build_started: reason newly appeared.
-		if old.BuildReason == "" && t.BuildReason != "" {
+		// build_started: reason newly appeared and target is actively building.
+		// Guard on State == "building" to avoid firing alongside a failed event
+		// when a fast build cycle transitions building→failed in a single poll.
+		if old.BuildReason == "" && t.BuildReason != "" && t.State == "building" {
 			why := t.BuildReason
 			if len(t.BuildReasonPackages) > 0 {
 				why += ": " + strings.Join(t.BuildReasonPackages, ", ")

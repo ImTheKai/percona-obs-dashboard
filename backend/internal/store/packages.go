@@ -46,6 +46,13 @@ func DeletePackagesByProject(db *sql.DB, project string) error {
 	return err
 }
 
+// DeletePackage removes a single package row.
+// Used by the MQ consumer on package.delete events.
+func DeletePackage(db *sql.DB, project, name string) error {
+	_, err := db.Exec(`DELETE FROM packages WHERE project = ? AND name = ?`, project, name)
+	return err
+}
+
 // scanPackages is a helper that extracts the scan loop pattern used by multiple query functions.
 // It expects rows to have been created with the standard package column order:
 // project, name, scope, rollup_state, ok_targets, total_targets,
@@ -109,14 +116,14 @@ func GetActivePackages(db *sql.DB) ([]*model.Package, error) {
 	return scanPackages(rows)
 }
 
-// GetFinishedPackagesByProject returns all packages for the given project with
-// rollup_state = 'finished'. Used by the MQ consumer on repo.published to signal
-// packages for the finished → succeeded transition via the worker pool.
+// GetFinishedPackagesByProject returns succeeded packages for a project.
+// Used by the MQ consumer on repo.published to signal packages for a publish
+// state re-check via the worker pool.
 func GetFinishedPackagesByProject(db *sql.DB, project string) ([]*model.Package, error) {
 	rows, err := db.Query(`
 		SELECT project, name, scope, rollup_state, ok_targets, total_targets,
 		       trigger_what, trigger_kind, trigger_at, targets_json, updated_at
-		FROM packages WHERE project = ? AND rollup_state = 'finished'`,
+		FROM packages WHERE project = ? AND rollup_state = 'succeeded'`,
 		project,
 	)
 	if err != nil {

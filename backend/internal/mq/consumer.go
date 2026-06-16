@@ -169,9 +169,9 @@ func (c *Consumer) handle(ctx context.Context, msg amqp.Delivery) {
 
 	var payload any
 	if err := json.Unmarshal(msg.Body, &payload); err != nil {
-		slog.Info("mq: received raw message", "key", msg.RoutingKey, "message", string(msg.Body), "err", err)
+		slog.Debug("mq: received raw message", "key", msg.RoutingKey, "message", string(msg.Body), "err", err)
 	} else {
-		slog.Info("mq: received raw message", "key", msg.RoutingKey, "payload", payload)
+		slog.Debug("mq: received raw message", "key", msg.RoutingKey, "payload", payload)
 	}
 
 	key := msg.RoutingKey
@@ -236,6 +236,9 @@ func (c *Consumer) handle(ctx context.Context, msg amqp.Delivery) {
 		c.ws.Signal(stub)
 
 	case key == "opensuse.obs.package.delete":
+		if err := store.DeletePackage(c.db, m.Project, m.Package); err != nil {
+			slog.Error("mq: delete package", "project", m.Project, "package", m.Package, "err", err)
+		}
 		c.appendEvent(&model.Event{
 			ID:      "evt_" + ulid.Make().String(),
 			Type:    model.EventDeleted,

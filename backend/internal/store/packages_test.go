@@ -139,31 +139,32 @@ func TestGetFinishedPackagesByProject(t *testing.T) {
 
 	now := time.Now().UTC().Truncate(time.Second)
 
-	pkgFinished1 := &model.Package{
+	// GetFinishedPackagesByProject returns succeeded packages (for publish re-check).
+	pkgSucceeded1 := &model.Package{
 		Project: "isv:percona:ppg:17", Name: "postgres17", Scope: model.ScopeVersion,
-		RollupState: model.RollupFinished, OKTargets: 0, TotalTargets: 1,
-		Targets: []model.Target{{Repo: "Percona-PPG-17", Arch: "x86_64", State: "finished"}},
-		UpdatedAt: now,
-	}
-	pkgFinished2 := &model.Package{
-		Project: "isv:percona:ppg:17", Name: "pgaudit17", Scope: model.ScopeVersion,
-		RollupState: model.RollupFinished, OKTargets: 0, TotalTargets: 1,
-		Targets: []model.Target{{Repo: "Percona-PPG-17", Arch: "aarch64", State: "finished"}},
-		UpdatedAt: now,
-	}
-	pkgSucceeded := &model.Package{
-		Project: "isv:percona:ppg:17", Name: "pg_stat_monitor", Scope: model.ScopeVersion,
 		RollupState: model.RollupSucceeded, OKTargets: 1, TotalTargets: 1,
 		Targets: []model.Target{{Repo: "Percona-PPG-17", Arch: "x86_64", State: "succeeded"}},
 		UpdatedAt: now,
 	}
-	pkgOtherProject := &model.Package{
-		Project: "isv:percona:ppg:16", Name: "postgres16", Scope: model.ScopeVersion,
-		RollupState: model.RollupFinished, OKTargets: 0, TotalTargets: 1,
-		Targets: []model.Target{{Repo: "Percona-PPG-16", Arch: "x86_64", State: "finished"}},
+	pkgSucceeded2 := &model.Package{
+		Project: "isv:percona:ppg:17", Name: "pgaudit17", Scope: model.ScopeVersion,
+		RollupState: model.RollupSucceeded, OKTargets: 1, TotalTargets: 1,
+		Targets: []model.Target{{Repo: "Percona-PPG-17", Arch: "aarch64", State: "succeeded"}},
 		UpdatedAt: now,
 	}
-	for _, pkg := range []*model.Package{pkgFinished1, pkgFinished2, pkgSucceeded, pkgOtherProject} {
+	pkgBuilding := &model.Package{
+		Project: "isv:percona:ppg:17", Name: "pg_stat_monitor", Scope: model.ScopeVersion,
+		RollupState: model.RollupBuilding, OKTargets: 0, TotalTargets: 1,
+		Targets: []model.Target{{Repo: "Percona-PPG-17", Arch: "x86_64", State: "building"}},
+		UpdatedAt: now,
+	}
+	pkgOtherProject := &model.Package{
+		Project: "isv:percona:ppg:16", Name: "postgres16", Scope: model.ScopeVersion,
+		RollupState: model.RollupSucceeded, OKTargets: 1, TotalTargets: 1,
+		Targets: []model.Target{{Repo: "Percona-PPG-16", Arch: "x86_64", State: "succeeded"}},
+		UpdatedAt: now,
+	}
+	for _, pkg := range []*model.Package{pkgSucceeded1, pkgSucceeded2, pkgBuilding, pkgOtherProject} {
 		if err := UpsertPackageState(db, pkg); err != nil {
 			t.Fatalf("seed: %v", err)
 		}
@@ -174,13 +175,13 @@ func TestGetFinishedPackagesByProject(t *testing.T) {
 		t.Fatalf("unexpected error: %v", err)
 	}
 	if len(got) != 2 {
-		t.Fatalf("want 2 finished packages, got %d", len(got))
+		t.Fatalf("want 2 succeeded packages, got %d", len(got))
 	}
 	names := map[string]bool{}
 	for _, p := range got {
 		names[p.Name] = true
-		if p.RollupState != model.RollupFinished {
-			t.Errorf("package %s: want RollupFinished, got %s", p.Name, p.RollupState)
+		if p.RollupState != model.RollupSucceeded {
+			t.Errorf("package %s: want RollupSucceeded, got %s", p.Name, p.RollupState)
 		}
 		if p.Project != "isv:percona:ppg:17" {
 			t.Errorf("package %s: wrong project %s", p.Name, p.Project)
