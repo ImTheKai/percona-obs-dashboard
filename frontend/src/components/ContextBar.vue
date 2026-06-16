@@ -88,6 +88,7 @@ function scopeStyle(_id: string, active: boolean): string {
             @click="emit('update:version', v)"
             :style="tabStyle(v, version)"
           >{{ v }}</button>
+          <button @click="emit('update:version', '')" :style="tabStyle('', version)">All</button>
         </div>
       </div>
 

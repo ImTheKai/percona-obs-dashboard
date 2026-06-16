@@ -14,6 +14,7 @@ const SEVERITY: Record<string, number> = {
 }
 
 // matchesVersion returns true if pkg belongs to the selected version.
+// An empty version string means "all versions" — every package passes.
 // A package is a "common" package (always shown) when the segment at prefixDepth
 // in its project path is absent or not a known version number.
 function matchesVersion(
@@ -22,6 +23,7 @@ function matchesVersion(
   prefixDepth: number,
   knownVersions: Set<string>,
 ): boolean {
+  if (!version) return true
   const seg = pkg.project.split(':')[prefixDepth]
   if (!seg || !knownVersions.has(seg)) return true
   return seg === version

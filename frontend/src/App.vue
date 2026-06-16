@@ -30,7 +30,7 @@ const selectedContext = ref<Context>(DEFAULT_CONTEXT)
 const prefixDepth = computed(() => selectedContext.value.prefix.split(':').length)
 
 // Navigation state
-const version = ref('17')
+const version = ref('')
 const activeScopes = ref<string[]>([])
 
 function toggleScope(scope: string) {
@@ -66,9 +66,9 @@ const { data: allPackages, rawData: rawPackages, availableVersions, refresh: ref
 const { data: events, refresh: refreshEvents } = useEvents(apiBase, version)
 const { data: prGroups, refresh: refreshPR } = usePRPackages()
 
-// Reset version to highest available when context changes (packages reload)
+// Reset version to highest available when context changes, unless "All" is selected.
 watch(availableVersions, (vers) => {
-  if (vers.length > 0 && !vers.includes(version.value)) {
+  if (vers.length > 0 && version.value !== '' && !vers.includes(version.value)) {
     version.value = vers[0]
   }
 })
