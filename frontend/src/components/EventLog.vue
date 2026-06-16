@@ -19,26 +19,27 @@ const emit = defineEmits<{
 
 // ── Filter state ──────────────────────────────────────────────
 const filterOpen = ref(false)
-const activeTypes = ref(new Set<EventType>())
-const filterRepo = ref('')
+const activeTypes = ref<string[]>([])
+const activeRepos = ref<string[]>([])
 const filterArch = ref('')
 const filterPackage = ref('')
+const openDropdown = ref<'types' | 'repos' | null>(null)
 
-const TYPE_META: Record<string, { glyph: string; color: string; bg: string; label: string }> = {
-  succeeded:      { glyph: '✓', color: 'var(--ok)',            bg: 'var(--ok-tint)',           label: 'succeeded' },
-  failed:         { glyph: '✗', color: 'var(--fail)',          bg: 'var(--fail-tint)',         label: 'failed' },
-  broken:         { glyph: '✗', color: 'var(--blocked)',       bg: 'var(--blocked-tint)',      label: 'broken' },
-  unresolvable:   { glyph: '⚠', color: 'var(--blocked)',       bg: 'var(--blocked-tint)',      label: 'unresolvable' },
-  blocked:        { glyph: '⊘', color: 'var(--blocked)',       bg: 'var(--blocked-tint)',      label: 'blocked' },
-  published:      { glyph: '↑', color: 'var(--brand-purple)', bg: 'var(--brand-purple-tint)', label: 'published' },
-  created:        { glyph: '+', color: 'var(--ok)',            bg: 'var(--ok-tint)',           label: 'created' },
-  deleted:        { glyph: '−', color: 'var(--fail)',          bg: 'var(--fail-tint)',         label: 'deleted' },
-  build_started:  { glyph: '▶', color: 'var(--info)',          bg: 'var(--info-tint)',         label: 'build started' },
-  build_finished: { glyph: '■', color: 'var(--blocked)',       bg: 'var(--blocked-tint)',      label: 'build finished' },
-  version_change: { glyph: '↕', color: 'var(--blocked)',       bg: 'var(--blocked-tint)',      label: 'version change' },
-  updated:        { glyph: '◉', color: 'var(--blocked)',       bg: 'var(--blocked-tint)',      label: 'updated' },
-  triggered:      { glyph: '↻', color: 'var(--blocked)',       bg: 'var(--blocked-tint)',      label: 'triggered' },
-  started:        { glyph: '▶', color: 'var(--blocked)',       bg: 'var(--blocked-tint)',      label: 'started' },
+const TYPE_META: Record<string, { color: string; label: string }> = {
+  succeeded:      { color: 'var(--ok)',            label: 'Succeeded' },
+  failed:         { color: 'var(--fail)',          label: 'Failed' },
+  broken:         { color: 'var(--broken)',        label: 'Broken' },
+  unresolvable:   { color: 'var(--warn)',          label: 'Unresolvable' },
+  blocked:        { color: 'var(--blocked)',       label: 'Blocked' },
+  published:      { color: 'var(--brand-purple)',  label: 'Published' },
+  created:        { color: 'var(--ok)',            label: 'Created' },
+  deleted:        { color: 'var(--fail)',          label: 'Deleted' },
+  build_started:  { color: 'var(--info)',          label: 'Build started' },
+  build_finished: { color: 'var(--blocked)',       label: 'Build finished' },
+  version_change: { color: 'var(--blocked)',       label: 'Version change' },
+  updated:        { color: 'var(--blocked)',       label: 'Updated' },
+  triggered:      { color: 'var(--warn)',          label: 'Rebuild triggered' },
+  started:        { color: 'var(--info)',          label: 'Build started' },
 }
 
 const availableTypes = computed(() =>
@@ -50,41 +51,64 @@ const availableRepos = computed(() =>
 const availableArches = computed(() =>
   [...new Set(props.events.map(e => e.arch).filter(Boolean))].sort() as string[]
 )
+
 const activeFilterCount = computed(() =>
-  activeTypes.value.size +
-  (filterRepo.value ? 1 : 0) +
+  (activeTypes.value.length > 0 ? 1 : 0) +
+  (activeRepos.value.length > 0 ? 1 : 0) +
   (filterArch.value ? 1 : 0) +
   (filterPackage.value ? 1 : 0)
 )
+
 const filteredEvents = computed(() =>
   props.events
-    .filter(e => activeTypes.value.size === 0 || activeTypes.value.has(e.type))
-    .filter(e => filterRepo.value === '' || e.repo === filterRepo.value)
+    .filter(e => activeTypes.value.length === 0 || activeTypes.value.includes(e.type))
+    .filter(e => activeRepos.value.length === 0 || activeRepos.value.includes(e.repo ?? ''))
     .filter(e => filterArch.value === '' || e.arch === filterArch.value)
     .filter(e => filterPackage.value === '' ||
       e.what.toLowerCase().includes(filterPackage.value.toLowerCase()))
 )
 
 watch(availableRepos, (repos) => {
-  if (filterRepo.value && !repos.includes(filterRepo.value)) filterRepo.value = ''
+  activeRepos.value = activeRepos.value.filter(r => repos.includes(r))
 })
 watch(availableArches, (arches) => {
   if (filterArch.value && !arches.includes(filterArch.value)) filterArch.value = ''
 })
 
-function toggleType(type: EventType) {
-  const next = new Set(activeTypes.value)
-  if (next.has(type)) next.delete(type)
-  else next.add(type)
-  activeTypes.value = next
+function toggleType(type: string) {
+  activeTypes.value = activeTypes.value.includes(type)
+    ? activeTypes.value.filter(t => t !== type)
+    : [...activeTypes.value, type]
+}
+
+function toggleRepo(repo: string) {
+  activeRepos.value = activeRepos.value.includes(repo)
+    ? activeRepos.value.filter(r => r !== repo)
+    : [...activeRepos.value, repo]
+}
+
+function toggleDropdown(which: 'types' | 'repos') {
+  openDropdown.value = openDropdown.value === which ? null : which
 }
 
 function clearFilters() {
-  activeTypes.value = new Set()
-  filterRepo.value = ''
+  activeTypes.value = []
+  activeRepos.value = []
   filterArch.value = ''
   filterPackage.value = ''
 }
+
+const typeDropdownLabel = computed(() => {
+  if (activeTypes.value.length === 0) return 'All event types ▾'
+  if (activeTypes.value.length === 1) return (TYPE_META[activeTypes.value[0]]?.label ?? activeTypes.value[0]) + ' ▾'
+  return activeTypes.value.length + ' event types ▾'
+})
+
+const repoDropdownLabel = computed(() => {
+  if (activeRepos.value.length === 0) return 'All repos ▾'
+  if (activeRepos.value.length === 1) return activeRepos.value[0] + ' ▾'
+  return activeRepos.value.length + ' repos ▾'
+})
 
 type Bucket = 'Today' | 'Yesterday' | 'Earlier'
 
@@ -143,60 +167,133 @@ const grouped = computed(() => {
           @click="filterOpen = !filterOpen"
           :style="{
             flexShrink: '0',
-            fontSize: '11px', fontWeight: '700', padding: '4px 10px',
-            borderRadius: '6px', border: '1px solid',
+            fontSize: '11.5px', fontWeight: '700', padding: '4px 11px',
+            borderRadius: '7px', border: '1px solid',
             cursor: 'pointer', fontFamily: 'inherit',
-            background: activeFilterCount > 0 ? 'var(--brand-purple-tint)' : 'var(--bg-muted)',
-            color: activeFilterCount > 0 ? 'var(--brand-purple)' : 'var(--text-muted)',
-            borderColor: activeFilterCount > 0 ? 'var(--brand-purple)' : 'var(--border)',
+            display: 'inline-flex', alignItems: 'center', gap: '6px',
+            background: (filterOpen || activeFilterCount > 0) ? 'var(--brand-purple-tint)' : 'var(--bg-card)',
+            color: (filterOpen || activeFilterCount > 0) ? 'var(--brand-purple)' : 'var(--text-secondary)',
+            borderColor: (filterOpen || activeFilterCount > 0) ? 'var(--brand-purple)' : 'var(--border)',
           }"
-        >{{ filterOpen ? '⊟' : '⊞' }} Filter{{ activeFilterCount > 0 ? ` · ${activeFilterCount}` : '' }}</button>
+        >Filter{{ activeFilterCount > 0 ? ` · ${activeFilterCount}` : '' }}</button>
       </div>
       <!-- Collapsible filter panel -->
-      <div v-if="filterOpen" style="background: var(--bg-muted); border: 1px solid var(--border); border-radius: 8px; padding: 9px 10px; display: flex; flex-direction: column; gap: 8px;">
-        <!-- Row 1: type pills -->
-        <div style="display: flex; gap: 5px; flex-wrap: wrap;">
+      <div
+        v-if="filterOpen"
+        style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap; background: var(--bg-card-2); border: 1px solid var(--border); border-radius: 10px; padding: 10px 11px; position: relative;"
+      >
+        <!-- Click-away overlay -->
+        <div v-if="openDropdown !== null" @click="openDropdown = null" style="position: fixed; inset: 0; z-index: 10;" />
+
+        <!-- Event type multi-select dropdown -->
+        <div style="position: relative; z-index: 20;">
           <button
-            v-for="type in availableTypes"
-            :key="type"
-            @click="toggleType(type)"
+            @click="toggleDropdown('types')"
             :style="{
-              fontSize: '10.5px', fontWeight: '700', padding: '2px 9px',
-              borderRadius: '20px', border: '1px solid', cursor: 'pointer',
-              fontFamily: 'inherit',
-              background: activeTypes.has(type) ? (TYPE_META[type]?.bg ?? 'var(--blocked-tint)') : 'transparent',
-              color: activeTypes.has(type) ? (TYPE_META[type]?.color ?? 'var(--text-muted)') : 'var(--text-muted)',
-              borderColor: activeTypes.has(type) ? (TYPE_META[type]?.color ?? 'var(--border)') : 'var(--border)',
+              padding: '5px 10px', borderRadius: '7px', fontFamily: 'inherit',
+              fontSize: '11.5px', fontWeight: '600', cursor: 'pointer',
+              display: 'inline-flex', alignItems: 'center', gap: '7px', whiteSpace: 'nowrap',
+              background: (activeTypes.length > 0 || openDropdown === 'types') ? 'var(--brand-purple-tint)' : 'var(--bg-card)',
+              color: (activeTypes.length > 0 || openDropdown === 'types') ? 'var(--brand-purple)' : 'var(--text-secondary)',
+              border: (activeTypes.length > 0 || openDropdown === 'types') ? '1px solid var(--brand-purple)' : '1px solid var(--border-strong)',
             }"
-          >{{ TYPE_META[type]?.glyph ?? '·' }} {{ TYPE_META[type]?.label ?? type }}</button>
+          >{{ typeDropdownLabel }}</button>
+          <div
+            v-if="openDropdown === 'types'"
+            style="position: absolute; top: calc(100% + 5px); left: 0; min-width: 200px; background: var(--bg-card); border: 1px solid var(--border-strong); border-radius: 9px; box-shadow: 0 10px 28px rgba(0,0,0,0.20); padding: 4px; display: flex; flex-direction: column; max-height: 260px; overflow-y: auto;"
+          >
+            <div
+              v-for="type in availableTypes"
+              :key="type"
+              @click="toggleType(type)"
+              :style="{
+                display: 'flex', alignItems: 'center', gap: '8px',
+                padding: '6px 9px', borderRadius: '6px', cursor: 'pointer',
+                fontSize: '11.5px', fontWeight: '600', color: 'var(--text-primary)',
+                background: activeTypes.includes(type) ? 'var(--bg-muted)' : 'transparent',
+              }"
+            >
+              <span :style="{
+                width: '14px', height: '14px', borderRadius: '4px', flexShrink: '0',
+                border: '1.5px solid ' + (TYPE_META[type]?.color ?? 'var(--border-strong)'),
+                background: activeTypes.includes(type) ? (TYPE_META[type]?.color ?? 'var(--brand-purple)') : 'transparent',
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                fontSize: '9px', fontWeight: '800', color: '#fff',
+              }">{{ activeTypes.includes(type) ? '✓' : '' }}</span>
+              <span :style="{ width: '8px', height: '8px', borderRadius: '2px', flexShrink: '0', background: TYPE_META[type]?.color ?? 'var(--text-muted)' }"></span>
+              {{ TYPE_META[type]?.label ?? type }}
+            </div>
+          </div>
         </div>
-        <!-- Row 2: repo + arch dropdowns + package search + clear -->
-        <div style="display: flex; gap: 6px; align-items: center;">
-          <select
-            v-model="filterRepo"
-            style="flex: 1; background: var(--bg-card); border: 1px solid var(--border); border-radius: 5px; padding: 4px 6px; font-size: 11px; color: var(--text-secondary); font-family: inherit;"
-          >
-            <option value="">All repos</option>
-            <option v-for="repo in availableRepos" :key="repo" :value="repo">{{ repo }}</option>
-          </select>
-          <select
-            v-model="filterArch"
-            style="flex: 1; background: var(--bg-card); border: 1px solid var(--border); border-radius: 5px; padding: 4px 6px; font-size: 11px; color: var(--text-secondary); font-family: inherit;"
-          >
-            <option value="">All arches</option>
-            <option v-for="arch in availableArches" :key="arch" :value="arch">{{ arch }}</option>
-          </select>
-          <input
-            v-model="filterPackage"
-            placeholder="🔍 package name…"
-            style="flex: 2; background: var(--bg-card); border: 1px solid var(--border); border-radius: 5px; padding: 4px 7px; font-size: 11px; color: var(--text-secondary); font-family: var(--font-mono);"
-          />
+
+        <!-- Repo multi-select dropdown -->
+        <div style="position: relative; z-index: 20;">
           <button
-            v-if="activeFilterCount > 0"
-            @click="clearFilters"
-            style="font-size: 11px; color: var(--text-muted); background: none; border: none; cursor: pointer; padding: 0 2px; white-space: nowrap; font-family: inherit;"
-          >✕ clear</button>
+            @click="toggleDropdown('repos')"
+            :style="{
+              padding: '5px 10px', borderRadius: '7px', fontFamily: 'inherit',
+              fontSize: '11.5px', fontWeight: '600', cursor: 'pointer',
+              display: 'inline-flex', alignItems: 'center', gap: '7px', whiteSpace: 'nowrap',
+              background: (activeRepos.length > 0 || openDropdown === 'repos') ? 'var(--brand-purple-tint)' : 'var(--bg-card)',
+              color: (activeRepos.length > 0 || openDropdown === 'repos') ? 'var(--brand-purple)' : 'var(--text-secondary)',
+              border: (activeRepos.length > 0 || openDropdown === 'repos') ? '1px solid var(--brand-purple)' : '1px solid var(--border-strong)',
+            }"
+          >{{ repoDropdownLabel }}</button>
+          <div
+            v-if="openDropdown === 'repos'"
+            style="position: absolute; top: calc(100% + 5px); left: 0; min-width: 180px; background: var(--bg-card); border: 1px solid var(--border-strong); border-radius: 9px; box-shadow: 0 10px 28px rgba(0,0,0,0.20); padding: 4px; display: flex; flex-direction: column; max-height: 260px; overflow-y: auto;"
+          >
+            <div
+              v-for="repo in availableRepos"
+              :key="repo"
+              @click="toggleRepo(repo)"
+              :style="{
+                display: 'flex', alignItems: 'center', gap: '8px',
+                padding: '6px 9px', borderRadius: '6px', cursor: 'pointer',
+                fontSize: '11.5px', fontWeight: '600', color: 'var(--text-primary)',
+                background: activeRepos.includes(repo) ? 'var(--bg-muted)' : 'transparent',
+              }"
+            >
+              <span :style="{
+                width: '14px', height: '14px', borderRadius: '4px', flexShrink: '0',
+                border: '1.5px solid var(--border-strong)',
+                background: activeRepos.includes(repo) ? 'var(--brand-purple)' : 'transparent',
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                fontSize: '9px', fontWeight: '800', color: '#fff',
+              }">{{ activeRepos.includes(repo) ? '✓' : '' }}</span>
+              {{ repo }}
+            </div>
+          </div>
         </div>
+
+        <!-- Arch single-select -->
+        <select
+          v-model="filterArch"
+          :style="{
+            fontFamily: 'inherit', fontSize: '11.5px', fontWeight: '600', cursor: 'pointer',
+            color: filterArch ? 'var(--brand-purple)' : 'var(--text-secondary)',
+            background: filterArch ? 'var(--brand-purple-tint)' : 'var(--bg-card)',
+            border: filterArch ? '1px solid var(--brand-purple)' : '1px solid var(--border-strong)',
+            borderRadius: '7px', padding: '5px 8px',
+          }"
+        >
+          <option value="">All arches</option>
+          <option v-for="arch in availableArches" :key="arch" :value="arch">{{ arch }}</option>
+        </select>
+
+        <!-- Package name search -->
+        <input
+          v-model="filterPackage"
+          placeholder="Package name…"
+          style="font-family: var(--font-mono); font-size: 11.5px; color: var(--text-primary); background: var(--bg-card); border: 1px solid var(--border-strong); border-radius: 7px; padding: 5px 9px; flex: 1; min-width: 120px;"
+        />
+
+        <!-- Clear button -->
+        <button
+          v-if="activeFilterCount > 0"
+          @click="clearFilters"
+          style="background: none; border: none; cursor: pointer; font-family: inherit; font-size: 11px; font-weight: 700; color: var(--fail); padding: 4px 2px; white-space: nowrap;"
+        >clear</button>
       </div>
     </div>
 
