@@ -39,6 +39,10 @@ const SCOPE_LABEL: Record<string, string> = {
   container: 'Container', release: 'Release',
 }
 
+const TARGET_SEVERITY: Record<string, number> = {
+  broken: 6, unresolvable: 5, failed: 4, blocked: 3, building: 2, finished: 1, scheduled: 1, succeeded: 0,
+}
+
 const INITIAL_VISIBLE = 3
 
 const showAll = ref(false)
@@ -129,7 +133,9 @@ function stateDetailColor(t: Target): string {
 }
 
 const failingTargets = computed(() =>
-  props.pkg.targets.filter(t => !SKIP_STATES.has(t.state) && t.state !== 'succeeded')
+  props.pkg.targets
+    .filter(t => !SKIP_STATES.has(t.state) && t.state !== 'succeeded')
+    .sort((a, b) => (TARGET_SEVERITY[b.state] ?? 0) - (TARGET_SEVERITY[a.state] ?? 0))
 )
 const visibleFailing = computed(() =>
   showAll.value ? failingTargets.value : failingTargets.value.slice(0, INITIAL_VISIBLE)
