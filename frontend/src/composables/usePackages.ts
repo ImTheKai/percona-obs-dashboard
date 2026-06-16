@@ -44,7 +44,9 @@ export function usePackages(
     loading.value = true
     error.value = null
     try {
-      const res = await fetch(`${base}/${v}/packages`)
+      // Backend ignores the version segment (filters by product prefix only).
+      // Use "_" as a placeholder when version is "" (all-versions mode).
+      const res = await fetch(`${base}/${v || '_'}/packages`)
       if (!res.ok) throw new Error(`HTTP ${res.status}`)
       data.value = await res.json()
     } catch (e) {
