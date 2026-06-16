@@ -63,7 +63,7 @@ const customTo = ref<string | null>(null)
 // Data fetching
 const apiBase = computed(() => selectedContext.value.apiBase)
 const { data: allPackages, rawData: rawPackages, availableVersions, refresh: refreshPackages, filterByScope } = usePackages(apiBase, version, prefixDepth)
-const { data: events, refresh: refreshEvents } = useEvents(apiBase, version)
+const { data: events, refresh: refreshEvents, filterEvents } = useEvents(apiBase, version)
 const { data: prGroups, refresh: refreshPR } = usePRPackages()
 
 // Reset version to highest available when context changes, unless "All" is selected.
@@ -107,6 +107,7 @@ const contexts = computed<Context[]>(() => {
 })
 
 const filteredPackages = computed(() => filterByScope(activeScopes.value))
+const filteredEvents = computed(() => filterEvents(activeScopes.value, version.value, prefixDepth.value))
 const updatedAt = ref<string | null>(null)
 
 async function refresh() {
@@ -153,7 +154,7 @@ watch([windowMin, customFrom, customTo], () => refresh())
       <HealthHeader :packages="allPackages" />
       <MainGrid
         :packages="filteredPackages"
-        :events="events"
+        :events="filteredEvents"
         :window-min="windowMin"
         :custom-from="customFrom"
         :custom-to="customTo"

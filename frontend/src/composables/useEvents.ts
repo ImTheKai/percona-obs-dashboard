@@ -29,5 +29,20 @@ export function useEvents(apiBase: MaybeRef<string>, version: MaybeRef<string>) 
     }
   }
 
-  return { data, loading, error, refresh }
+  function matchesEventVersion(event: Event, version: string, prefixDepth: number): boolean {
+    if (!version) return true
+    const seg = event.project.split(':')[prefixDepth]
+    // Non-numeric segment (common, ppgcommon, project events) always passes
+    if (!seg || !/^\d+$/.test(seg)) return true
+    return seg === version
+  }
+
+  function filterEvents(scopes: string[], version: string, prefixDepth: number): Event[] {
+    return data.value.filter(e => {
+      if (scopes.length > 0 && !scopes.includes(e.scope)) return false
+      return matchesEventVersion(e, version, prefixDepth)
+    })
+  }
+
+  return { data, loading, error, refresh, filterEvents }
 }
