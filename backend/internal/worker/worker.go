@@ -60,6 +60,10 @@ func (p *Pool) run(ctx context.Context) {
 // working set once all succeeded targets are published.
 // Exported for testing.
 func (p *Pool) ProcessOnce(ctx context.Context, pkg *model.Package) {
+	// Capture now before tasks run so state_changed_at reflects when the state
+	// was observed, not when the (potentially slow) task chain finished.
+	now := time.Now().UTC()
+
 	// Snapshot target state before task chain. BuildReasonPackages is a slice
 	// field — deep copy to avoid aliasing if a task appends in-place.
 	oldTargets := make([]model.Target, len(pkg.Targets))
@@ -80,7 +84,7 @@ func (p *Pool) ProcessOnce(ctx context.Context, pkg *model.Package) {
 		}
 	}
 
-	if err := store.UpsertPackageState(p.db, pkg, time.Now().UTC()); err != nil {
+	if err := store.UpsertPackageState(p.db, pkg, now); err != nil {
 		slog.Error("worker: upsert package state", "pkg", pkg.Project+"/"+pkg.Name, "err", err)
 	}
 	p.hub.Notify(hubpkg.PackageUpdate(pkg))
