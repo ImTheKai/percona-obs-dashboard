@@ -54,6 +54,7 @@ type Target struct {
 	BlockedBy           string   `json:"blocked_by,omitempty"`
 	BuildReason         string   `json:"build_reason,omitempty"`
 	BuildReasonPackages []string `json:"build_reason_packages,omitempty"`
+	Published           bool     `json:"published,omitempty"`
 }
 
 type Trigger struct {
