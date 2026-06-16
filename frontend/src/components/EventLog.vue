@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, ref } from 'vue'
+import { computed, ref, watch } from 'vue'
 import TimeWindowPicker from './TimeWindowPicker.vue'
 import EventRow from './EventRow.vue'
 import type { Event, EventType } from '../types/api'
@@ -64,6 +64,13 @@ const filteredEvents = computed(() =>
     .filter(e => filterPackage.value === '' ||
       e.what.toLowerCase().includes(filterPackage.value.toLowerCase()))
 )
+
+watch(availableRepos, (repos) => {
+  if (filterRepo.value && !repos.includes(filterRepo.value)) filterRepo.value = ''
+})
+watch(availableArches, (arches) => {
+  if (filterArch.value && !arches.includes(filterArch.value)) filterArch.value = ''
+})
 
 function toggleType(type: EventType) {
   const next = new Set(activeTypes.value)
