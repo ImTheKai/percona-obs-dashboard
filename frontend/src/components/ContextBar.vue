@@ -22,7 +22,6 @@ const SCOPES = [
   { id: 'ppgcommon', label: 'PPG Common' },
   { id: 'version', label: 'Version' },
   { id: 'container', label: 'Container' },
-  { id: 'release', label: 'Release' },
 ]
 
 function formatTime(iso: string | null): string {

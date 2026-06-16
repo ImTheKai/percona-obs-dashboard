@@ -150,7 +150,7 @@ watch([windowMin, customFrom, customTo], () => refresh())
         @toggle-scope="toggleScope"
         @update:context="selectContext"
       />
-      <HealthHeader :packages="allPackages.filter(p => p.scope !== 'release')" />
+      <HealthHeader :packages="allPackages" />
       <MainGrid
         :packages="filteredPackages"
         :events="events"
