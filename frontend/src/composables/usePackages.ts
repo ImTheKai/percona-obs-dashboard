@@ -70,7 +70,7 @@ export function usePackages(
     const depth = toValue(prefixDepth)
     const knownVersions = new Set(availableVersions.value)
     return [...data.value]
-      .filter(pkg => pkg.scope !== 'release' && matchesVersion(pkg, ver, depth, knownVersions))
+      .filter(pkg => pkg.scope !== 'release' && !pkg.project.toLowerCase().includes(':releases:') && matchesVersion(pkg, ver, depth, knownVersions))
       .sort((a, b) => (SEVERITY[b.rollup_state] ?? 0) - (SEVERITY[a.rollup_state] ?? 0))
   })
 
