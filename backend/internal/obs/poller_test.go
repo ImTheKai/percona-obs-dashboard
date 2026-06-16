@@ -13,10 +13,14 @@ func TestInferScope(t *testing.T) {
 	}{
 		{"isv:percona:PR:pr-42:ppg17", model.ScopePR},
 		{"isv:percona:ppg:releases:17:containers:ubi9", model.ScopeRelease},
-		{"isv:percona:ppg:17:containers:ubi9", model.ScopeContainer},
+		{"isv:percona:ppg:releases:17", model.ScopeRelease},
+		{"isv:percona:ppg:common:deps", model.ScopePPGCommon},
+		{"isv:percona:ppg:common", model.ScopePPGCommon},
 		{"isv:percona:ppgcommon", model.ScopePPGCommon},
-		{"isv:percona:ppg:common", model.ScopeCommon},
+		{"isv:percona:ppg:17:containers:ubi9", model.ScopeContainer},
 		{"isv:percona:ppg:17", model.ScopeVersion},
+		{"isv:percona:common:deps:build", model.ScopeCommon},
+		{"isv:common:pg:deps", model.ScopeCommon},
 	}
 	for _, c := range cases {
 		got := InferScope(c.project)

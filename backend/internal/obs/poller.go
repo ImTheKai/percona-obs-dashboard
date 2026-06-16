@@ -20,13 +20,13 @@ type Poller struct {
 	client   *Client
 	db       *sql.DB
 	interval time.Duration
-	root     string
+	roots    []string
 	hub      *hubpkg.Hub
 	ws       *workingset.WorkingSet
 }
 
 func NewPoller(client *Client, db *sql.DB, interval time.Duration, h *hubpkg.Hub, ws *workingset.WorkingSet) *Poller {
-	return &Poller{client: client, db: db, interval: interval, root: "isv:percona", hub: h, ws: ws}
+	return &Poller{client: client, db: db, interval: interval, roots: []string{"isv:percona", "isv:common"}, hub: h, ws: ws}
 }
 
 // Run blocks until ctx is cancelled. It ticks immediately on first call.
@@ -46,10 +46,14 @@ func (p *Poller) Run(ctx context.Context) {
 }
 
 func (p *Poller) tick(ctx context.Context) {
-	projects, err := p.discoverProjects(ctx, p.root)
-	if err != nil {
-		slog.Error("poller: discover projects", "err", err)
-		return
+	var projects []string
+	for _, root := range p.roots {
+		proj, err := p.discoverProjects(ctx, root)
+		if err != nil {
+			slog.Error("poller: discover projects", "root", root, "err", err)
+			return
+		}
+		projects = append(projects, proj...)
 	}
 
 	liveProjects := make(map[string]bool, len(projects))
@@ -58,10 +62,14 @@ func (p *Poller) tick(ctx context.Context) {
 	}
 
 	// Load current store state keyed by (project, package)
-	existing, err := store.QueryPackages(p.db, p.root)
-	if err != nil {
-		slog.Error("poller: query packages", "err", err)
-		return
+	var existing []*model.Package
+	for _, root := range p.roots {
+		pkgs, err := store.QueryPackages(p.db, root)
+		if err != nil {
+			slog.Error("poller: query packages", "root", root, "err", err)
+			return
+		}
+		existing = append(existing, pkgs...)
 	}
 	byKey := make(map[string]*model.Package, len(existing))
 	for _, pkg := range existing {
@@ -168,10 +176,12 @@ func InferScope(project string) model.Scope {
 		return model.ScopePR
 	case strings.Contains(lower, "release"):
 		return model.ScopeRelease
-	case strings.Contains(lower, "container"):
-		return model.ScopeContainer
+	case strings.Contains(lower, ":ppg:common"):
+		return model.ScopePPGCommon
 	case strings.Contains(lower, "ppgcommon"):
 		return model.ScopePPGCommon
+	case strings.Contains(lower, "container"):
+		return model.ScopeContainer
 	case strings.Contains(lower, "common"):
 		return model.ScopeCommon
 	default:

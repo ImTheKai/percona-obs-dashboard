@@ -20,7 +20,7 @@ const SCOPES = [
   { id: 'all', label: 'All' },
   { id: 'common', label: 'Common' },
   { id: 'ppgcommon', label: 'PPG Common' },
-  { id: 'version', label: 'Version' },
+  { id: 'version', label: 'PPG' },
   { id: 'container', label: 'Container' },
 ]
 

@@ -30,6 +30,13 @@ func packagesHandler(db *sql.DB) http.HandlerFunc {
 			return
 		}
 
+		common, err := store.QueryPackages(db, "isv:common")
+		if err != nil {
+			http.Error(w, "internal server error", http.StatusInternalServerError)
+			return
+		}
+		pkgs = append(pkgs, common...)
+
 		w.Header().Set("Content-Type", "application/json")
 		if err := json.NewEncoder(w).Encode(pkgs); err != nil {
 			// Response already started; nothing we can do.

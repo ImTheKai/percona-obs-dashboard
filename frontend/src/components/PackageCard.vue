@@ -35,7 +35,7 @@ const STATE_LABEL: Record<string, string> = {
 }
 
 const SCOPE_LABEL: Record<string, string> = {
-  common: 'Common', ppgcommon: 'PPG Common', version: 'Version',
+  common: 'Common', ppgcommon: 'PPG Common', version: 'PPG',
   container: 'Container', release: 'Release',
 }
 
