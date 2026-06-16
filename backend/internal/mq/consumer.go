@@ -28,18 +28,14 @@ const (
 // mqMessage is the JSON structure of OBS MQ events.
 // Fields are a union of all event payloads; unused fields are zero for any given event type.
 type mqMessage struct {
-	Project    string `json:"project"`
-	Package    string `json:"package"`
-	Repo       string `json:"repository"`
-	Arch       string `json:"arch"`
-	Reason     string `json:"reason"`
-	Sender     string `json:"sender"`
-	BuildID    string `json:"buildid"`
-	OldVersion string `json:"oldversion"`
-	NewVersion string `json:"newversion"`
-	Rev        string `json:"rev"`
-	User       string `json:"user"`
-	Comment    string `json:"comment"`
+	Project string `json:"project"`
+	Package string `json:"package"`
+	Repo    string `json:"repository"`
+	Arch    string `json:"arch"`
+	Reason  string `json:"reason"`
+	Sender  string `json:"sender"`
+	User    string `json:"user"`
+	Comment string `json:"comment"`
 }
 
 // Consumer subscribes to the OBS AMQP bus and updates the store on build events.
