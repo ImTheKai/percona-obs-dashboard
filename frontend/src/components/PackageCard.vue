@@ -195,7 +195,7 @@ function logUrl(repo: string, arch: string): string {
     <!-- Row 3: failing targets -->
     <div v-if="failingTargets.length > 0" style="display: flex; flex-direction: column; gap: 6px;">
       <span style="font-size: 10.5px; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.05em;">
-        {{ failingTargets.length }} failing target{{ failingTargets.length !== 1 ? 's' : '' }}
+        {{ failingTargets.length }} active target{{ failingTargets.length !== 1 ? 's' : '' }}
       </span>
       <div style="display: flex; flex-direction: column; gap: 5px;">
         <div
