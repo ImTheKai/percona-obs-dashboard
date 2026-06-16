@@ -1,7 +1,8 @@
 <script setup lang="ts">
+import { computed } from 'vue'
 import type { Event, EventType } from '../types/api'
 
-defineProps<{ event: Event }>()
+const props = defineProps<{ event: Event }>()
 
 const GLYPH: Record<EventType, string> = {
   succeeded: '✓', failed: '✗', broken: '✗', unresolvable: '⚠',
@@ -10,19 +11,19 @@ const GLYPH: Record<EventType, string> = {
 }
 
 const GLYPH_COLOR: Record<EventType, string> = {
-  succeeded: 'var(--ok)', failed: 'var(--fail)', broken: 'var(--broken)',
-  unresolvable: 'var(--warn)', blocked: 'var(--blocked)',
-  published: 'var(--info)', triggered: 'var(--brand-purple)', started: 'var(--info)',
+  succeeded: 'var(--ok)', failed: 'var(--fail)', broken: 'var(--blocked)',
+  unresolvable: 'var(--blocked)', blocked: 'var(--blocked)',
+  published: 'var(--brand-purple)', triggered: 'var(--blocked)', started: 'var(--blocked)',
   created: 'var(--ok)', deleted: 'var(--fail)', build_started: 'var(--info)',
-  build_finished: 'var(--info)', version_change: 'var(--warn)', updated: 'var(--info)',
+  build_finished: 'var(--blocked)', version_change: 'var(--blocked)', updated: 'var(--blocked)',
 }
 
 const GLYPH_BG: Record<EventType, string> = {
-  succeeded: 'var(--ok-tint)', failed: 'var(--fail-tint)', broken: 'var(--broken-tint)',
-  unresolvable: 'var(--warn-tint)', blocked: 'var(--blocked-tint)',
-  published: 'var(--info-tint)', triggered: 'var(--brand-purple-tint)', started: 'var(--info-tint)',
+  succeeded: 'var(--ok-tint)', failed: 'var(--fail-tint)', broken: 'var(--blocked-tint)',
+  unresolvable: 'var(--blocked-tint)', blocked: 'var(--blocked-tint)',
+  published: 'var(--brand-purple-tint)', triggered: 'var(--blocked-tint)', started: 'var(--blocked-tint)',
   created: 'var(--ok-tint)', deleted: 'var(--fail-tint)', build_started: 'var(--info-tint)',
-  build_finished: 'var(--info-tint)', version_change: 'var(--warn-tint)', updated: 'var(--info-tint)',
+  build_finished: 'var(--blocked-tint)', version_change: 'var(--blocked-tint)', updated: 'var(--blocked-tint)',
 }
 
 const SCOPE_STYLE: Record<string, string> = {
@@ -32,6 +33,19 @@ const SCOPE_STYLE: Record<string, string> = {
   common: `background: var(--blocked-tint); color: var(--blocked);`,
   ppgcommon: `background: var(--blocked-tint); color: var(--blocked);`,
 }
+
+const SCOPE_LABEL: Record<string, string> = {
+  version: 'PPG',
+  ppgcommon: 'PPG Common',
+  common: 'Common',
+  container: 'Container',
+  release: 'Release',
+  pr: 'PR',
+}
+
+const showReason = computed(() =>
+  (props.event.type === 'build_started' || props.event.type === 'failed') && !!props.event.why
+)
 
 function timeStr(iso: string): string {
   const d = new Date(iso)
@@ -46,23 +60,27 @@ function timeStr(iso: string): string {
 </script>
 
 <template>
-  <a :href="event.url" target="_blank" rel="noopener" style="display: flex; gap: 11px; padding: 9px 14px; text-decoration: none; border-radius: 9px;">
+  <a :href="props.event.url" target="_blank" rel="noopener" style="display: flex; gap: 11px; padding: 9px 14px; text-decoration: none; border-radius: 9px;">
     <div style="display: flex; flex-direction: column; align-items: center; gap: 0; flex-shrink: 0;">
       <span
         style="width: 24px; height: 24px; border-radius: 7px; display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 800;"
-        :style="{ color: GLYPH_COLOR[event.type], background: GLYPH_BG[event.type] }"
-      >{{ GLYPH[event.type] }}</span>
+        :style="{ color: GLYPH_COLOR[props.event.type], background: GLYPH_BG[props.event.type] }"
+      >{{ GLYPH[props.event.type] }}</span>
       <span style="flex: 1; width: 2px; background: var(--border); margin-top: 3px; border-radius: 2px;"></span>
     </div>
     <div style="display: flex; flex-direction: column; gap: 3px; min-width: 0; padding-bottom: 6px;">
       <div style="display: flex; align-items: center; gap: 8px;">
-        <span style="font-size: 12.5px; font-weight: 700; color: var(--text-primary); overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">{{ event.what }}</span>
-        <span style="margin-left: auto; font-size: 10.5px; color: var(--text-muted); font-family: var(--font-mono); white-space: nowrap; flex-shrink: 0;">{{ timeStr(event.at) }}</span>
+        <span style="font-size: 12.5px; font-weight: 700; color: var(--text-primary); overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">{{ props.event.what }}</span>
+        <span style="margin-left: auto; font-size: 10.5px; color: var(--text-muted); font-family: var(--font-mono); white-space: nowrap; flex-shrink: 0;">{{ timeStr(props.event.at) }}</span>
       </div>
-      <span style="font-size: 11.5px; color: var(--text-secondary); line-height: 1.45;">{{ event.why }}</span>
+      <span
+        v-if="showReason"
+        style="font-size:11px;color:var(--text-secondary);background:var(--bg-muted,var(--blocked-tint));border:1px solid var(--border);border-radius:5px;padding:3px 7px;font-family:var(--font-mono);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;"
+      >{{ props.event.why }}</span>
       <div style="display: flex; align-items: center; gap: 6px; flex-wrap: wrap; margin-top: 2px;">
-        <span :style="`font-size: 9px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em; padding: 2px 6px; border-radius: 5px; ${SCOPE_STYLE[event.scope] ?? 'background: var(--blocked-tint); color: var(--blocked);'}`">{{ event.scope }}</span>
-        <code v-if="event.repo" style="font-family: var(--font-mono); font-size: 10px; color: var(--text-muted);">{{ event.repo }}/{{ event.arch }}</code>
+        <span :style="`font-size: 9px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em; padding: 2px 6px; border-radius: 5px; ${SCOPE_STYLE[props.event.scope] ?? 'background: var(--blocked-tint); color: var(--blocked);'}`">{{ SCOPE_LABEL[props.event.scope] ?? props.event.scope }}</span>
+        <code style="font-family:var(--font-mono);font-size:10px;color:var(--text-muted);">{{ props.event.project }}</code>
+        <code v-if="props.event.repo" style="font-family: var(--font-mono); font-size: 10px; color: var(--text-muted);">{{ props.event.repo }}/{{ props.event.arch }}</code>
       </div>
     </div>
   </a>
