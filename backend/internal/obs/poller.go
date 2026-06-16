@@ -166,10 +166,10 @@ func InferScope(project string) model.Scope {
 	// PR projects: isv:percona:PR:pr-<number>[:<subproject>]
 	case strings.HasPrefix(lower, "isv:percona:pr:"):
 		return model.ScopePR
-	case strings.Contains(lower, "container"):
-		return model.ScopeContainer
 	case strings.Contains(lower, "release"):
 		return model.ScopeRelease
+	case strings.Contains(lower, "container"):
+		return model.ScopeContainer
 	case strings.Contains(lower, "ppgcommon"):
 		return model.ScopePPGCommon
 	case strings.Contains(lower, "common"):
