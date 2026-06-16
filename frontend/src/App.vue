@@ -112,13 +112,15 @@ const filteredEvents = computed(() => filterEvents(activeScopes.value, version.v
 const updatedAt = ref<string | null>(null)
 
 async function refresh() {
+  const isCustom = windowMin.value === -1
+  const hasCustomRange = customFrom.value != null && customTo.value != null
+  // Skip fetch when Custom is active but dates aren't set yet — window=-1 returns 400.
+  const eventsOpts = isCustom
+    ? (hasCustomRange ? { from: customFrom.value!, to: customTo.value! } : null)
+    : { window: windowMin.value }
   await Promise.all([
     refreshPackages(),
-    refreshEvents(
-      windowMin.value === -1 && customFrom.value && customTo.value
-        ? { from: customFrom.value, to: customTo.value }
-        : { window: windowMin.value }
-    ),
+    eventsOpts ? refreshEvents(eventsOpts) : Promise.resolve(),
     refreshPR(),
   ])
   updatedAt.value = new Date().toISOString()
