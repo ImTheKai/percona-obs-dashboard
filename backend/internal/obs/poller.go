@@ -107,7 +107,7 @@ func (p *Poller) tick(ctx context.Context) {
 				}
 				p.hub.Notify(hubpkg.PackageUpdate(pkg))
 				p.ws.Add(pkg)
-				if rollupChanged {
+				if rollupChanged && !isTransientRollup(pkg.RollupState) {
 					evt := stateChangeEvent(pkg, prev)
 					if err := store.AppendEvent(p.db, evt); err != nil {
 						slog.Error("poller: append event", "err", err)
@@ -267,6 +267,14 @@ func buildPackage(project, name string, scope model.Scope, targets []PackageBuil
 		Targets:      mTargets,
 		UpdatedAt:    time.Now().UTC(),
 	}
+}
+
+// isTransientRollup returns true for in-progress states that are not final
+// outcomes. The worker emits per-target events (build_started, succeeded,
+// failed, published) that cover these transitions; a package-level event for
+// a transient state would be noise and uses an undefined EventType string.
+func isTransientRollup(s model.RollupState) bool {
+	return s == model.RollupBuilding || s == model.RollupFinished || s == model.RollupScheduled
 }
 
 func stateChangeEvent(pkg *model.Package, prev *model.Package) *model.Event {
