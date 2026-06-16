@@ -5,7 +5,10 @@ import (
 	"database/sql"
 	"fmt"
 	"log/slog"
+	"strings"
+	"time"
 
+	"github.com/oklog/ulid/v2"
 	hubpkg "github.com/percona/obs-dashboard/internal/hub"
 	"github.com/percona/obs-dashboard/internal/model"
 	"github.com/percona/obs-dashboard/internal/obs"
@@ -47,12 +50,20 @@ func (p *Pool) run(ctx context.Context) {
 			if !ok {
 				return
 			}
-			p.process(ctx, pkg)
+			p.ProcessOnce(ctx, pkg)
 		}
 	}
 }
 
-func (p *Pool) process(ctx context.Context, pkg *model.Package) {
+// ProcessOnce runs the full task chain for pkg, upserts to DB,
+// emits build events for state transitions, and removes pkg from the
+// working set once all succeeded targets are published.
+// Exported for testing.
+func (p *Pool) ProcessOnce(ctx context.Context, pkg *model.Package) {
+	// Snapshot target state before task chain.
+	oldTargets := make([]model.Target, len(pkg.Targets))
+	copy(oldTargets, pkg.Targets)
+
 	for _, t := range p.tasks {
 		if err := t.Run(ctx, p.client, pkg); err != nil {
 			slog.Warn("worker: task error",
@@ -61,11 +72,133 @@ func (p *Pool) process(ctx context.Context, pkg *model.Package) {
 				"err", err)
 		}
 	}
+
 	if err := store.UpsertPackageState(p.db, pkg); err != nil {
 		slog.Error("worker: upsert package state", "pkg", pkg.Project+"/"+pkg.Name, "err", err)
 	}
 	p.hub.Notify(hubpkg.PackageUpdate(pkg))
-	if pkg.RollupState == model.RollupSucceeded {
+	p.emitBuildEvents(pkg, oldTargets)
+
+	if pkg.RollupState == model.RollupSucceeded && allTargetsPublished(pkg) {
 		p.ws.Remove(pkg.Project + "/" + pkg.Name)
 	}
+}
+
+// allTargetsPublished returns true when every succeeded target has been published.
+func allTargetsPublished(pkg *model.Package) bool {
+	for _, t := range pkg.Targets {
+		if t.State == "succeeded" && !t.Published {
+			return false
+		}
+	}
+	return true
+}
+
+var failStates = map[string]bool{"failed": true, "unresolvable": true, "broken": true}
+
+const obsBase = "https://build.opensuse.org"
+
+// emitBuildEvents compares oldTargets with pkg.Targets and appends one event
+// per target for each meaningful state transition.
+func (p *Pool) emitBuildEvents(pkg *model.Package, oldTargets []model.Target) {
+	oldByKey := make(map[string]model.Target, len(oldTargets))
+	for _, t := range oldTargets {
+		oldByKey[t.Repo+"/"+t.Arch] = t
+	}
+
+	now := time.Now().UTC()
+
+	for _, t := range pkg.Targets {
+		key := t.Repo + "/" + t.Arch
+		old := oldByKey[key]
+
+		// build_started: reason newly appeared.
+		if old.BuildReason == "" && t.BuildReason != "" {
+			why := t.BuildReason
+			if len(t.BuildReasonPackages) > 0 {
+				why += ": " + strings.Join(t.BuildReasonPackages, ", ")
+			}
+			p.appendEvent(&model.Event{
+				ID:      "evt_" + ulid.Make().String(),
+				Type:    model.EventBuildStarted,
+				Scope:   pkg.Scope,
+				Project: pkg.Project,
+				Package: pkg.Name,
+				Repo:    t.Repo,
+				Arch:    t.Arch,
+				What:    fmt.Sprintf("%s build started on %s", pkg.Name, key),
+				Why:     why,
+				URL:     fmt.Sprintf("%s/package/live_build_log/%s/%s/%s/%s", obsBase, pkg.Project, pkg.Name, t.Repo, t.Arch),
+				At:      now,
+			})
+		}
+
+		// failed (includes unresolvable, broken).
+		if !failStates[old.State] && failStates[t.State] {
+			why := ""
+			if t.State == "unresolvable" && t.Details != "" {
+				why = "unresolvable: " + t.Details
+			} else if t.State == "broken" && t.Details != "" {
+				why = "broken: " + t.Details
+			}
+			p.appendEvent(&model.Event{
+				ID:      "evt_" + ulid.Make().String(),
+				Type:    model.EventFailed,
+				Scope:   pkg.Scope,
+				Project: pkg.Project,
+				Package: pkg.Name,
+				Repo:    t.Repo,
+				Arch:    t.Arch,
+				What:    fmt.Sprintf("%s failed on %s", pkg.Name, key),
+				Why:     why,
+				URL:     fmt.Sprintf("%s/package/show/%s/%s", obsBase, pkg.Project, pkg.Name),
+				At:      now,
+			})
+		}
+
+		// succeeded.
+		if old.State != "succeeded" && t.State == "succeeded" {
+			p.appendEvent(&model.Event{
+				ID:      "evt_" + ulid.Make().String(),
+				Type:    model.EventSucceeded,
+				Scope:   pkg.Scope,
+				Project: pkg.Project,
+				Package: pkg.Name,
+				Repo:    t.Repo,
+				Arch:    t.Arch,
+				What:    fmt.Sprintf("%s succeeded on %s", pkg.Name, key),
+				Why:     "",
+				URL:     fmt.Sprintf("%s/package/show/%s/%s", obsBase, pkg.Project, pkg.Name),
+				At:      now,
+			})
+		}
+
+		// published.
+		if !old.Published && t.Published {
+			p.appendEvent(&model.Event{
+				ID:      "evt_" + ulid.Make().String(),
+				Type:    model.EventPublished,
+				Scope:   pkg.Scope,
+				Project: pkg.Project,
+				Package: pkg.Name,
+				Repo:    t.Repo,
+				Arch:    t.Arch,
+				What:    fmt.Sprintf("%s published on %s", pkg.Name, key),
+				Why:     "",
+				URL:     fmt.Sprintf("%s/package/show/%s/%s", obsBase, pkg.Project, pkg.Name),
+				At:      now,
+			})
+		}
+	}
+}
+
+func (p *Pool) appendEvent(evt *model.Event) {
+	if p.db == nil {
+		return
+	}
+	if err := store.AppendEvent(p.db, evt); err != nil {
+		slog.Error("worker: append event", "err", err)
+		return
+	}
+	p.hub.Notify(hubpkg.NewEvent(evt))
 }
