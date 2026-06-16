@@ -159,13 +159,10 @@ func targetsChanged(prev *model.Package, next *model.Package) bool {
 	return false
 }
 
-// discoverProjects returns all OBS projects under root using the search API.
+// discoverProjects returns all OBS projects whose names start with root+":".
+// The root itself is not included — it is a namespace prefix, not a pollable project.
 func (p *Poller) discoverProjects(ctx context.Context, root string) ([]string, error) {
-	sub, err := p.client.SearchProjects(ctx, root)
-	if err != nil {
-		return nil, err
-	}
-	return append([]string{root}, sub...), nil
+	return p.client.SearchProjects(ctx, root)
 }
 
 // InferScope classifies an OBS project name into a Scope tier.
