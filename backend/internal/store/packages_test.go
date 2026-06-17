@@ -1,10 +1,12 @@
 package store
 
 import (
+	"database/sql"
 	"testing"
 	"time"
 
 	"github.com/percona/obs-dashboard/internal/model"
+	_ "modernc.org/sqlite"
 )
 
 func TestUpsertQueryPackage(t *testing.T) {
@@ -270,6 +272,129 @@ func TestVersionRoundtrip(t *testing.T) {
 	}
 	if found.IsContainer == nil || !*found.IsContainer {
 		t.Error("IsContainer: expected true")
+	}
+}
+
+func TestIsContainerNullableMigration(t *testing.T) {
+	// Simulate a database created before is_container became nullable.
+	db, err := sql.Open("sqlite", ":memory:?_journal_mode=WAL&_foreign_keys=on&_busy_timeout=5000")
+	if err != nil {
+		t.Fatal(err)
+	}
+	db.SetMaxOpenConns(1)
+	// Create old schema with NOT NULL constraint.
+	if _, err := db.Exec(`CREATE TABLE packages (
+		project          TEXT NOT NULL,
+		name             TEXT NOT NULL,
+		scope            TEXT NOT NULL,
+		rollup_state     TEXT NOT NULL,
+		ok_targets       INTEGER NOT NULL DEFAULT 0,
+		total_targets    INTEGER NOT NULL DEFAULT 0,
+		trigger_what     TEXT,
+		trigger_kind     TEXT,
+		trigger_at       DATETIME,
+		targets_json     TEXT NOT NULL DEFAULT '[]',
+		updated_at       DATETIME NOT NULL,
+		state_changed_at DATETIME,
+		is_container     INTEGER NOT NULL DEFAULT 0,
+		version          TEXT NOT NULL DEFAULT '',
+		PRIMARY KEY (project, name)
+	)`); err != nil {
+		t.Fatal(err)
+	}
+	// Insert rows: one non-container (0) and one container (1).
+	now := time.Now().UTC()
+	if _, err := db.Exec(
+		`INSERT INTO packages (project, name, scope, rollup_state, ok_targets, total_targets, targets_json, updated_at, is_container)
+		 VALUES (?,?,?,?,?,?,?,?,?)`,
+		"p", "rpm", "version", "succeeded", 1, 1, "[]", now, 0,
+	); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := db.Exec(
+		`INSERT INTO packages (project, name, scope, rollup_state, ok_targets, total_targets, targets_json, updated_at, is_container)
+		 VALUES (?,?,?,?,?,?,?,?,?)`,
+		"p", "img", "container", "succeeded", 1, 1, "[]", now, 1,
+	); err != nil {
+		t.Fatal(err)
+	}
+	db.Close()
+
+	// Re-open via Open() which should apply the migration automatically.
+	// We can't use the same in-memory DB after Close(), so use a temp file.
+	tmp := t.TempDir() + "/test.db"
+	dbOld, err := sql.Open("sqlite", tmp+"?_journal_mode=WAL&_foreign_keys=on&_busy_timeout=5000")
+	if err != nil {
+		t.Fatal(err)
+	}
+	dbOld.SetMaxOpenConns(1)
+	if _, err := dbOld.Exec(`CREATE TABLE packages (
+		project          TEXT NOT NULL,
+		name             TEXT NOT NULL,
+		scope            TEXT NOT NULL,
+		rollup_state     TEXT NOT NULL,
+		ok_targets       INTEGER NOT NULL DEFAULT 0,
+		total_targets    INTEGER NOT NULL DEFAULT 0,
+		trigger_what     TEXT,
+		trigger_kind     TEXT,
+		trigger_at       DATETIME,
+		targets_json     TEXT NOT NULL DEFAULT '[]',
+		updated_at       DATETIME NOT NULL,
+		state_changed_at DATETIME,
+		is_container     INTEGER NOT NULL DEFAULT 0,
+		version          TEXT NOT NULL DEFAULT '',
+		PRIMARY KEY (project, name)
+	); CREATE TABLE events (
+		id TEXT PRIMARY KEY, type TEXT NOT NULL, scope TEXT NOT NULL,
+		project TEXT NOT NULL, package TEXT NOT NULL, repo TEXT, arch TEXT,
+		what TEXT NOT NULL, why TEXT NOT NULL, url TEXT NOT NULL,
+		at DATETIME NOT NULL, version TEXT NOT NULL DEFAULT ''
+	)`); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := dbOld.Exec(
+		`INSERT INTO packages (project, name, scope, rollup_state, ok_targets, total_targets, targets_json, updated_at, is_container)
+		 VALUES (?,?,?,?,?,?,?,?,?),
+		        (?,?,?,?,?,?,?,?,?)`,
+		"p", "rpm", "version", "succeeded", 1, 1, "[]", now, 0,
+		"p", "img", "container", "succeeded", 1, 1, "[]", now, 1,
+	); err != nil {
+		t.Fatal(err)
+	}
+	dbOld.Close()
+
+	migratedDB, err := Open(tmp)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer migratedDB.Close()
+
+	pkgs, err := QueryPackages(migratedDB, "p")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(pkgs) != 2 {
+		t.Fatalf("expected 2 packages, got %d", len(pkgs))
+	}
+	byName := map[string]*model.Package{}
+	for _, p := range pkgs {
+		byName[p.Name] = p
+	}
+
+	if byName["rpm"].IsContainer != nil {
+		t.Errorf("rpm: is_container should be NULL after migration (was 0=default), got %v", byName["rpm"].IsContainer)
+	}
+	if byName["img"].IsContainer == nil || !*byName["img"].IsContainer {
+		t.Errorf("img: is_container should be true after migration, got %v", byName["img"].IsContainer)
+	}
+
+	// Verify we can now insert a package with NULL is_container.
+	newPkg := &model.Package{
+		Project: "p", Name: "new", Scope: "version", RollupState: "building",
+		Targets: []model.Target{}, UpdatedAt: now,
+	}
+	if err := UpsertPackageState(migratedDB, newPkg, now); err != nil {
+		t.Errorf("upsert with nil IsContainer failed: %v", err)
 	}
 }
 
