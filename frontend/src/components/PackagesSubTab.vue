@@ -119,10 +119,6 @@ function stateClass(state: string): string {
   return 'status-other'
 }
 
-function installCmd(name: string, repo: RepoInfo): string {
-  if (repo.obs.startsWith('openSUSE')) return `zypper install ${name}`
-  return repo.type === 'rpm' ? `dnf install ${name}` : `apt-get install ${name}`
-}
 </script>
 
 <template>
@@ -214,8 +210,7 @@ function installCmd(name: string, repo: RepoInfo): string {
               <span class="expand-glyph">{{ expanded[rowKey(row)] ? '▼' : '▶' }}</span>
               <code class="pkg-name">{{ row.name }}</code>
               <code v-if="row.version" class="pkg-version">{{ row.version }}</code>
-              <code class="install-cmd">{{ installCmd(row.name, row.repo) }}</code>
-              <span class="status-badge" :class="row.published ? 'status-published' : stateClass(row.state)">
+<span class="status-badge" :class="row.published ? 'status-published' : stateClass(row.state)">
                 {{ row.published ? 'Published' : stateLabel(row.state) }}
               </span>
             </button>
@@ -536,12 +531,6 @@ function installCmd(name: string, repo: RepoInfo): string {
   flex-shrink: 0;
 }
 
-.install-cmd {
-  font-family: var(--font-mono);
-  font-size: 11px;
-  color: var(--text-muted);
-  white-space: nowrap;
-}
 
 .status-badge {
   font-size: 11px;
