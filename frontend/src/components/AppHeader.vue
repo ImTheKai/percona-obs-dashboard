@@ -23,7 +23,7 @@ const emit = defineEmits<{
         :class="{ active: mainTab === 'board' }"
         @click="emit('update:main-tab', 'board')"
       >
-        Board
+        Builds
       </button>
       <button
         class="tab-pill"
