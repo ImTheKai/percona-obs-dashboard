@@ -468,7 +468,7 @@ func (c *Client) PackageContainerTags(ctx context.Context, project, repo, arch, 
 	var info struct {
 		Tags []string `json:"tags"`
 	}
-	body, err := io.ReadAll(resp.Body)
+	body, err := io.ReadAll(io.LimitReader(resp.Body, 1<<20))
 	if err != nil {
 		return "", err
 	}
