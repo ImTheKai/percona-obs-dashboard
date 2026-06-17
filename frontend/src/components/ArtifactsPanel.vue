@@ -185,7 +185,17 @@ onMounted(() => {
 
 async function onContextChange(ctx: Context) {
   selectedContext.value = ctx
+  artRepoObs.value = ''  // clear stale repo so new context auto-selects its first repo
   await fetchPackages(ctx)
+  // availableVersions watcher only fires fetchRepos when localVersion actually changes.
+  // If the version stays the same (e.g. PPG and Releases both have '17'), the watcher
+  // is silent and repos for the new context are never fetched — so we call explicitly.
+  const versions = availableVersions.value
+  if (versions.length > 0 && localVersion.value !== versions[0]) {
+    localVersion.value = versions[0]  // watcher fires fetchRepos
+  } else {
+    await fetchRepos(localVersion.value)
+  }
 }
 
 function onVersionChange(v: string) {
