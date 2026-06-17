@@ -262,6 +262,7 @@ function stateClass(state: string): string {
 .sidebar {
   width: 220px;
   flex-shrink: 0;
+  align-self: flex-start;
   background: var(--bg-card);
   border-radius: 12px;
   overflow: hidden;
