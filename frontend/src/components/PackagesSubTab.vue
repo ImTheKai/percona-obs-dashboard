@@ -95,12 +95,6 @@ function downloadUrl(row: PackageRow, filename: string): string {
 
 // ----- labels -----
 
-function scopeLabel(scope: string, version: string): string {
-  if (scope === 'common') return 'Common'
-  if (scope === 'ppgcommon') return 'PPG·Common'
-  if (scope === 'version') return `PPG ${version}`
-  return scope
-}
 
 const STATE_LABELS: Record<string, string> = {
   succeeded: 'Built',
@@ -219,10 +213,9 @@ function installCmd(name: string, repo: RepoInfo): string {
             >
               <span class="expand-glyph">{{ expanded[rowKey(row)] ? '▼' : '▶' }}</span>
               <code class="pkg-name">{{ row.name }}</code>
-              <span v-if="row.scope !== 'version'" class="scope-badge" :class="'scope-' + row.scope">{{ scopeLabel(row.scope, version) }}</span>
               <code class="install-cmd">{{ installCmd(row.name, row.repo) }}</code>
-              <span class="status-badge" :class="stateClass(row.state)">
-                {{ stateLabel(row.state) }}
+              <span class="status-badge" :class="row.published ? 'status-published' : stateClass(row.state)">
+                {{ row.published ? 'Published' : stateLabel(row.state) }}
               </span>
             </button>
 
@@ -547,6 +540,11 @@ function installCmd(name: string, repo: RepoInfo): string {
   padding: 2px 8px;
   border-radius: 10px;
   white-space: nowrap;
+}
+
+.status-published {
+  background: #dbeafe;
+  color: #1d4ed8;
 }
 
 .status-built {

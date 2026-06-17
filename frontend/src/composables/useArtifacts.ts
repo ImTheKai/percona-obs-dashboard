@@ -13,6 +13,7 @@ export interface PackageRow {
   name: string
   scope: 'common' | 'ppgcommon' | 'version'
   state: string
+  published: boolean
   repo: RepoInfo
   arch: string
 }
@@ -77,6 +78,7 @@ export function useArtifacts(
         name: pkg.name,
         scope: scope as 'common' | 'ppgcommon' | 'version',
         state: target.state ?? '',
+        published: target.published === true,
         repo,
         arch,
       })
