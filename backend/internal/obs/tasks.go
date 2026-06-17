@@ -131,11 +131,14 @@ func (t PackageTypeTask) Run(ctx context.Context, client *Client, pkg *model.Pac
 }
 
 // VersionTask fetches the latest versrel (e.g. "17.5-1") for RPM/DEB packages
-// from the OBS _result?view=versrel endpoint. Skipped for container packages.
+// from the OBS _result?view=versrel endpoint. Skipped for confirmed container
+// packages (which get their version from ContainerTagsTask instead).
+// When IsContainer is nil (not yet detected), we run anyway — it is safe because
+// the OBS endpoint returns an empty string for containers and the task is a no-op.
 type VersionTask struct{}
 
 func (t VersionTask) Run(ctx context.Context, client *Client, pkg *model.Package) error {
-	if pkg.IsContainer == nil || *pkg.IsContainer {
+	if pkg.IsContainer != nil && *pkg.IsContainer {
 		return nil
 	}
 	versrel, err := client.PackageVersionResult(ctx, pkg.Project, pkg.Name)
