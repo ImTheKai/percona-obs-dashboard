@@ -7,8 +7,23 @@ import (
 	"testing"
 
 	"github.com/percona/obs-dashboard/internal/hub"
+	"github.com/percona/obs-dashboard/internal/obs"
 	"github.com/percona/obs-dashboard/internal/store"
 )
+
+// stubOBSServer returns a test HTTP server that replies with an empty OBS
+// _result?view=versrel XML response for any request. Used so that releases
+// handlers (which require an OBS client) return empty data rather than 503.
+func stubOBSServer(t *testing.T) *httptest.Server {
+	t.Helper()
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/xml")
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte(`<resultlist state=""></resultlist>`))
+	}))
+	t.Cleanup(srv.Close)
+	return srv
+}
 
 func setupTestServer(t *testing.T) http.Handler {
 	t.Helper()
@@ -17,7 +32,9 @@ func setupTestServer(t *testing.T) http.Handler {
 		t.Fatalf("store.Open: %v", err)
 	}
 	t.Cleanup(func() { db.Close() })
-	return NewRouter(db, hub.New(), nil)
+	obsSrv := stubOBSServer(t)
+	obsClient := obs.NewClient(obsSrv.URL, "user", "pass")
+	return NewRouter(db, hub.New(), obsClient)
 }
 
 func TestPackagesHandler_EmptyDB(t *testing.T) {

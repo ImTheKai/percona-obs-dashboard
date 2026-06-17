@@ -281,14 +281,72 @@ func reposHandler(db *sql.DB) http.HandlerFunc {
 }
 
 // releasesPackagesHandler returns a handler for GET /api/releases/ppg/{version}/packages.
-// {version} is accepted for URL symmetry but ignored server-side; version filtering is client-side.
-func releasesPackagesHandler(db *sql.DB) http.HandlerFunc {
+// It queries OBS directly for build results (view=versrel) and constructs Package
+// objects with real targets and version strings — release packages in the DB carry
+// no build-target data, so the OBS API is the authoritative source.
+func releasesPackagesHandler(obsClient *obs.Client) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		pkgs, err := store.QueryPackages(db, "isv:percona:ppg:releases")
+		version := chi.URLParam(r, "version")
+		project := "isv:percona:ppg:releases:" + version
+
+		if obsClient == nil {
+			http.Error(w, "OBS client not configured", http.StatusServiceUnavailable)
+			return
+		}
+
+		results, err := obsClient.ProjectBuildResults(r.Context(), project)
 		if err != nil {
 			http.Error(w, "internal server error", http.StatusInternalServerError)
 			return
 		}
+
+		// Aggregate per-package targets and versrel from OBS results.
+		type pkgEntry struct {
+			version string
+			targets []model.Target
+			ok      int
+		}
+		byPkg := map[string]*pkgEntry{}
+		for _, res := range results {
+			if res.Package == "" {
+				continue
+			}
+			e, exists := byPkg[res.Package]
+			if !exists {
+				e = &pkgEntry{}
+				byPkg[res.Package] = e
+			}
+			published := res.State == "published"
+			if published || res.State == "succeeded" {
+				e.ok++
+			}
+			e.targets = append(e.targets, model.Target{
+				Repo:      res.Repo,
+				Arch:      res.Arch,
+				State:     res.State,
+				Published: published,
+			})
+			if e.version == "" && res.Versrel != "" {
+				e.version = res.Versrel
+			}
+		}
+
+		pkgs := make([]*model.Package, 0, len(byPkg))
+		for name, e := range byPkg {
+			rollup := worstRollupFromTargets(e.targets)
+			pkgs = append(pkgs, &model.Package{
+				Project:      project,
+				Name:         name,
+				Scope:        model.ScopeRelease,
+				RollupState:  rollup,
+				OKTargets:    e.ok,
+				TotalTargets: len(e.targets),
+				Version:      e.version,
+				Targets:      e.targets,
+			})
+		}
+		sort.Slice(pkgs, func(i, j int) bool { return pkgs[i].Name < pkgs[j].Name })
+
 		w.Header().Set("Content-Type", "application/json")
 		if err := json.NewEncoder(w).Encode(pkgs); err != nil {
 			return
@@ -297,10 +355,43 @@ func releasesPackagesHandler(db *sql.DB) http.HandlerFunc {
 }
 
 // releasesReposHandler returns a handler for GET /api/releases/ppg/{version}/repos.
-func releasesReposHandler(db *sql.DB) http.HandlerFunc {
-	return reposHandlerWithPrefix(db, func(r *http.Request) string {
-		return "isv:percona:ppg:releases:" + chi.URLParam(r, "version")
-	})
+// It queries OBS directly because release packages in the DB carry no build targets.
+func releasesReposHandler(obsClient *obs.Client) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		version := chi.URLParam(r, "version")
+		project := "isv:percona:ppg:releases:" + version
+
+		if obsClient == nil {
+			http.Error(w, "OBS client not configured", http.StatusServiceUnavailable)
+			return
+		}
+
+		results, err := obsClient.ProjectBuildResults(r.Context(), project)
+		if err != nil {
+			http.Error(w, "internal server error", http.StatusInternalServerError)
+			return
+		}
+
+		seen := map[string]struct{}{}
+		resp := ReposResponse{RPM: []RepoInfo{}, DEB: []RepoInfo{}}
+		for _, res := range results {
+			if _, ok := seen[res.Repo]; ok {
+				continue
+			}
+			seen[res.Repo] = struct{}{}
+			info := RepoInfo{OBS: res.Repo, Name: repoDisplayName(res.Repo)}
+			if repoType(res.Repo) == "deb" {
+				resp.DEB = append(resp.DEB, info)
+			} else {
+				resp.RPM = append(resp.RPM, info)
+			}
+		}
+
+		w.Header().Set("Content-Type", "application/json")
+		if err := json.NewEncoder(w).Encode(resp); err != nil {
+			return
+		}
+	}
 }
 
 // prReposHandler returns a handler for GET /api/pr/{pr}/{subproject}/{version}/repos.
@@ -343,6 +434,32 @@ func binariesHandler(obsClient *obs.Client) http.HandlerFunc {
 			return
 		}
 	}
+}
+
+// worstRollupFromTargets returns the worst RollupState derived from a slice of Targets.
+func worstRollupFromTargets(targets []model.Target) model.RollupState {
+	worst := model.RollupSucceeded
+	for _, t := range targets {
+		var rs model.RollupState
+		switch t.State {
+		case "failed":
+			rs = model.RollupFailed
+		case "broken":
+			rs = model.RollupBroken
+		case "unresolvable":
+			rs = model.RollupUnresolvable
+		case "blocked":
+			rs = model.RollupBlocked
+		case "building", "finished", "scheduled":
+			rs = model.RollupBuilding
+		default:
+			rs = model.RollupSucceeded
+		}
+		if rs.Severity() > worst.Severity() {
+			worst = rs
+		}
+	}
+	return worst
 }
 
 // worstRollup returns the worst RollupState across a slice of packages.

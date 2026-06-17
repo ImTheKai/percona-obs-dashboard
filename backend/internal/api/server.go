@@ -24,8 +24,8 @@ func NewRouter(db *sql.DB, h *hub.Hub, obsClient *obs.Client) http.Handler {
 	})
 
 	r.Route("/api/releases/ppg/{version}", func(r chi.Router) {
-		r.Get("/packages", releasesPackagesHandler(db))
-		r.Get("/repos", releasesReposHandler(db))
+		r.Get("/packages", releasesPackagesHandler(obsClient))
+		r.Get("/repos", releasesReposHandler(obsClient))
 	})
 
 	r.Get("/api/pr/packages", prPackagesHandler(db))

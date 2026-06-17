@@ -123,6 +123,7 @@ type PackageBuildState struct {
 	Package string
 	State   string
 	Details string
+	Versrel string // version-release string, e.g. "17.5-1"; empty if not available
 }
 
 // BuildReasonResult represents the result of a build reason query.
@@ -189,6 +190,39 @@ func (c *Client) BuildResults(ctx context.Context, project string) ([]PackageBui
 				Arch:    r.Arch,
 				Package: s.Package,
 				State:   s.Code,
+			})
+		}
+	}
+	return out, nil
+}
+
+// ProjectBuildResults fetches all build states for a project with version info
+// (view=versrel). Use this for release projects where the version comes from
+// OBS rather than from the DB.
+func (c *Client) ProjectBuildResults(ctx context.Context, project string) ([]PackageBuildState, error) {
+	path := fmt.Sprintf("/build/%s/_result?view=versrel", url.PathEscape(project))
+	resp, err := c.get(ctx, path)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+
+	var rl resultList
+	if err := xml.NewDecoder(resp.Body).Decode(&rl); err != nil {
+		return nil, fmt.Errorf("parse /build/%s/_result: %w", project, err)
+	}
+
+	var out []PackageBuildState
+	for _, r := range rl.Results {
+		for _, s := range r.Statuses {
+			out = append(out, PackageBuildState{
+				Project: project,
+				Repo:    r.Repository,
+				Arch:    r.Arch,
+				Package: s.Package,
+				State:   s.Code,
+				Details: s.Details,
+				Versrel: s.Versrel,
 			})
 		}
 	}
