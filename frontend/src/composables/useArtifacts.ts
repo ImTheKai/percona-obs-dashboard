@@ -24,6 +24,7 @@ export interface ContainerImage {
   registry: string
   tags: string[]
   pullCmd: string
+  rollupState: string
   published: boolean
 }
 
@@ -87,7 +88,7 @@ export function useArtifacts(
     const pkgs = toValue(packages)
 
     return pkgs
-      .filter(pkg => pkg.scope === 'container')
+      .filter(pkg => pkg.is_container === true)
       .map(pkg => {
         const tags = pkg.container_tags ?? []
         const baseOs = deriveBaseOs(pkg.project)
@@ -110,6 +111,7 @@ export function useArtifacts(
           registry,
           tags,
           pullCmd,
+          rollupState: pkg.rollup_state ?? '',
           published,
         }
       })
