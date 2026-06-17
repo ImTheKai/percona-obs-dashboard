@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue'
 import type { Package, Target } from '../types/api'
+import { displayVersion } from '../composables/useEventDisplay'
 
 const props = defineProps<{ pkg: Package }>()
 
@@ -145,6 +146,7 @@ const hiddenCount = computed(() => Math.max(0, failingTargets.value.length - INI
 
 const rollupColor = computed(() => STATE_COLOR[props.pkg.rollup_state] ?? 'var(--text-muted)')
 const rollupBg = computed(() => STATE_BG[props.pkg.rollup_state] ?? 'var(--blocked-tint)')
+const versionLabel = computed(() => displayVersion(props.pkg.version, props.pkg.is_container ?? false))
 const obsUrl = computed(() => `https://build.opensuse.org/package/show/${props.pkg.project}/${props.pkg.name}`)
 
 const stateAge = computed((): string | null => {
@@ -186,9 +188,24 @@ function logUrl(repo: string, arch: string): string {
       <a :href="obsUrl" target="_blank" rel="noopener" :style="{ marginLeft: stateAge ? '0' : 'auto', fontSize: '11.5px', fontWeight: '700', color: 'var(--brand-purple)', textDecoration: 'none', whiteSpace: 'nowrap', flexShrink: '0' }">OBS ↗</a>
     </div>
 
-    <!-- Row 2: scope tag + project path -->
+    <!-- Row 2: scope tag + version badge + project path -->
     <div style="display: flex; align-items: center; gap: 7px;">
       <span style="font-size: 9.5px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; padding: 2px 7px; border-radius: 5px; background: var(--blocked-tint); color: var(--blocked);">{{ SCOPE_LABEL[pkg.scope] ?? pkg.scope }}</span>
+      <span
+        v-if="versionLabel"
+        :style="{
+          fontFamily: 'var(--font-mono)',
+          fontSize: '10px',
+          fontWeight: '700',
+          padding: '2px 7px',
+          borderRadius: '5px',
+          background: pkg.is_container ? 'var(--brand-purple-tint)' : 'var(--bg-muted, var(--blocked-tint))',
+          color: pkg.is_container ? 'var(--brand-purple)' : 'var(--text-secondary)',
+          border: '1px solid var(--border)',
+          whiteSpace: 'nowrap',
+          flexShrink: '0',
+        }"
+      >{{ versionLabel }}</span>
       <code style="font-family: var(--font-mono); font-size: 10.5px; color: var(--text-muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">{{ pkg.project }}</code>
     </div>
 
