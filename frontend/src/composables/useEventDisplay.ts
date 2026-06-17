@@ -58,3 +58,11 @@ export function timeStr(iso: string): string {
 export function showReason(event: Event): boolean {
   return (event.type === 'build_started' || event.type === 'failed') && !!event.why
 }
+
+// Returns the formatted version string for display, or null if unavailable.
+// Containers: "Tag: 18.4-1-1.7"; RPMs: strips release suffix "17.5-1" → "17.5".
+export function displayVersion(version: string | undefined, isContainer: boolean): string | null {
+  if (!version) return null
+  if (isContainer) return 'Tag: ' + version
+  return version.replace(/-[^-]+$/, '')
+}

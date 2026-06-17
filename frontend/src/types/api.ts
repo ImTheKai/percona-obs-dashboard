@@ -31,6 +31,8 @@ export interface Package {
   rollup_state: BuildState
   ok_targets: number
   total_targets: number
+  is_container?: boolean
+  version?: string
   trigger?: Trigger // optional
   targets: Target[]
   updated_at: string // ISO 8601
@@ -53,6 +55,7 @@ export interface Event {
   arch?: string // optional
   what: string
   why: string
+  version?: string
   url: string
   at: string // ISO 8601
 }
