@@ -8,10 +8,11 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
 	"github.com/percona/obs-dashboard/internal/hub"
+	"github.com/percona/obs-dashboard/internal/obs"
 )
 
 // NewRouter creates the chi router with all API routes registered.
-func NewRouter(db *sql.DB, h *hub.Hub) http.Handler {
+func NewRouter(db *sql.DB, h *hub.Hub, obsClient *obs.Client) http.Handler {
 	r := chi.NewRouter()
 	r.Use(middleware.Logger)
 	r.Use(middleware.Recoverer)
@@ -22,14 +23,21 @@ func NewRouter(db *sql.DB, h *hub.Hub) http.Handler {
 		r.Get("/repos", reposHandler(db))
 	})
 
+	r.Route("/api/releases/ppg/{version}", func(r chi.Router) {
+		r.Get("/packages", releasesPackagesHandler(db))
+		r.Get("/repos", releasesReposHandler(db))
+	})
+
 	r.Get("/api/pr/packages", prPackagesHandler(db))
 
 	r.Route("/api/pr/{pr}/{subproject}/{version}", func(r chi.Router) {
 		r.Get("/packages", prContextPackagesHandler(db))
 		r.Get("/events", prContextEventsHandler(db))
+		r.Get("/repos", prReposHandler(db))
 	})
 
 	r.Get("/api/stream", streamHandler(h))
+	r.Get("/api/binaries", binariesHandler(obsClient))
 
 	return r
 }

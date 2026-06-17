@@ -17,7 +17,7 @@ func setupTestServer(t *testing.T) http.Handler {
 		t.Fatalf("store.Open: %v", err)
 	}
 	t.Cleanup(func() { db.Close() })
-	return NewRouter(db, hub.New())
+	return NewRouter(db, hub.New(), nil)
 }
 
 func TestPackagesHandler_EmptyDB(t *testing.T) {
@@ -191,5 +191,53 @@ func TestPRContextEventsHandler_InvalidWindow(t *testing.T) {
 	router.ServeHTTP(rec, req)
 	if rec.Code != http.StatusBadRequest {
 		t.Fatalf("expected 400, got %d", rec.Code)
+	}
+}
+
+func TestReleasesPackagesHandler_EmptyDB(t *testing.T) {
+	router := setupTestServer(t)
+	req := httptest.NewRequest(http.MethodGet, "/api/releases/ppg/17/packages", nil)
+	rec := httptest.NewRecorder()
+	router.ServeHTTP(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d", rec.Code)
+	}
+	var arr []interface{}
+	if err := json.NewDecoder(rec.Body).Decode(&arr); err != nil {
+		t.Fatalf("expected JSON array: %v", err)
+	}
+}
+
+func TestReleasesReposHandler_EmptyDB(t *testing.T) {
+	router := setupTestServer(t)
+	req := httptest.NewRequest(http.MethodGet, "/api/releases/ppg/17/repos", nil)
+	rec := httptest.NewRecorder()
+	router.ServeHTTP(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d", rec.Code)
+	}
+	var resp ReposResponse
+	if err := json.NewDecoder(rec.Body).Decode(&resp); err != nil {
+		t.Fatalf("decode response: %v", err)
+	}
+	if resp.RPM == nil || resp.DEB == nil {
+		t.Fatal("expected non-nil rpm and deb slices")
+	}
+}
+
+func TestPRReposHandler_EmptyDB(t *testing.T) {
+	router := setupTestServer(t)
+	req := httptest.NewRequest(http.MethodGet, "/api/pr/pr-92/ppg/17/repos", nil)
+	rec := httptest.NewRecorder()
+	router.ServeHTTP(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d", rec.Code)
+	}
+	var resp ReposResponse
+	if err := json.NewDecoder(rec.Body).Decode(&resp); err != nil {
+		t.Fatalf("decode response: %v", err)
+	}
+	if resp.RPM == nil || resp.DEB == nil {
+		t.Fatal("expected non-nil rpm and deb slices")
 	}
 }
