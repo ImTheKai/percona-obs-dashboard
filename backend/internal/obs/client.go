@@ -196,6 +196,29 @@ func (c *Client) BuildResults(ctx context.Context, project string) ([]PackageBui
 	return out, nil
 }
 
+// ProjectRepos returns the list of repository names configured for an OBS project
+// by reading /build/{project}/, which returns a directory listing of repo names.
+func (c *Client) ProjectRepos(ctx context.Context, project string) ([]string, error) {
+	resp, err := c.get(ctx, "/build/"+url.PathEscape(project)+"/")
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+
+	var dir directoryListing
+	if err := xml.NewDecoder(resp.Body).Decode(&dir); err != nil {
+		return nil, fmt.Errorf("parse /build/%s/: %w", project, err)
+	}
+
+	repos := make([]string, 0, len(dir.Entries))
+	for _, e := range dir.Entries {
+		if e.Name != "" {
+			repos = append(repos, e.Name)
+		}
+	}
+	return repos, nil
+}
+
 // ProjectBuildResults fetches all build states for a project with version info
 // (view=versrel). Use this for release projects where the version comes from
 // OBS rather than from the DB.

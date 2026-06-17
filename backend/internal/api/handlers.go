@@ -355,7 +355,8 @@ func releasesPackagesHandler(obsClient *obs.Client) http.HandlerFunc {
 }
 
 // releasesReposHandler returns a handler for GET /api/releases/ppg/{version}/repos.
-// It queries OBS directly because release packages in the DB carry no build targets.
+// It queries /build/{project}/ which returns the list of configured repo names
+// directly — much cheaper than scanning all build results.
 func releasesReposHandler(obsClient *obs.Client) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		version := chi.URLParam(r, "version")
@@ -366,21 +367,16 @@ func releasesReposHandler(obsClient *obs.Client) http.HandlerFunc {
 			return
 		}
 
-		results, err := obsClient.ProjectBuildResults(r.Context(), project)
+		repoNames, err := obsClient.ProjectRepos(r.Context(), project)
 		if err != nil {
 			http.Error(w, "internal server error", http.StatusInternalServerError)
 			return
 		}
 
-		seen := map[string]struct{}{}
 		resp := ReposResponse{RPM: []RepoInfo{}, DEB: []RepoInfo{}}
-		for _, res := range results {
-			if _, ok := seen[res.Repo]; ok {
-				continue
-			}
-			seen[res.Repo] = struct{}{}
-			info := RepoInfo{OBS: res.Repo, Name: repoDisplayName(res.Repo)}
-			if repoType(res.Repo) == "deb" {
+		for _, name := range repoNames {
+			info := RepoInfo{OBS: name, Name: repoDisplayName(name)}
+			if repoType(name) == "deb" {
 				resp.DEB = append(resp.DEB, info)
 			} else {
 				resp.RPM = append(resp.RPM, info)
