@@ -63,7 +63,7 @@ const binaryCache = reactive<Record<string, BinaryState>>({})
 const expanded = reactive<Record<string, boolean>>({})
 
 function rowKey(row: PackageRow): string {
-  return `${row.project}/${row.name}`
+  return `${row.project}/${row.repo.obs}/${row.arch}/${row.name}`
 }
 
 async function toggleRow(row: PackageRow) {
