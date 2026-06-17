@@ -10,6 +10,9 @@ import { useEvents } from './composables/useEvents'
 import { usePRPackages } from './composables/usePRPackages'
 import { useRealtimeStream } from './composables/useRealtimeStream'
 
+// Main tab
+const mainTab = ref<'board' | 'artifacts'>('board')
+
 // Theme
 const theme = ref<'light' | 'dark'>('light')
 watch(theme, (val) => {
@@ -142,7 +145,7 @@ watch([windowMin, customFrom, customTo], () => refresh())
 <template>
   <div class="min-h-screen bg-bg-app" style="padding: 24px 28px 60px;">
     <div style="max-width: 1360px; margin: 0 auto; display: flex; flex-direction: column; gap: 16px;">
-      <AppHeader :theme="theme" @toggle-theme="toggleTheme" />
+      <AppHeader :theme="theme" :main-tab="mainTab" @toggle-theme="toggleTheme" @update:main-tab="mainTab = $event" />
       <ContextBar
         :version="version"
         :updated-at="updatedAt"
