@@ -263,7 +263,7 @@ A single horizontal card (`var(--bg-card)`, `border-radius: 12px`, `padding: 14p
 
 1. **Tech badge** — `<span class="tech-badge tech-badge--postgresql">` using existing component class.
 2. **"VERSION" label** — `font-size: 11px; font-weight: 700; color: var(--text-muted); letter-spacing: 0.06em`.
-3. **Version pills** — one `<button>` per entry in `availableVersions`. Active (matches `version`): `background: var(--brand-purple); color: #fff`. Inactive: `background: var(--bg-card); color: var(--text-secondary); border: 1px solid var(--border)`. Both: `padding: 4px 12px; border-radius: 6px; font-size: 13px; font-weight: 600; cursor: pointer`.
+3. **Version pills** — one `<button>` per entry in `availableVersions`. Active (matches `version`): `background: var(--brand-purple); color: #fff; border: 1px solid var(--brand-purple)`. Inactive: `background: var(--bg-card); color: var(--text-secondary); border: 1px solid var(--border)`. Both: `padding: 4px 12px; border-radius: 6px; font-size: 13px; font-weight: 600; cursor: pointer`.
 4. **OBS root chip** — `<code>` element: `font-size: 12px; background: var(--bg-muted); color: var(--text-muted); padding: 3px 8px; border-radius: 5px`.
 
 ---
@@ -277,11 +277,15 @@ Two-column flex layout. Left: 220 px sticky sidebar. Right: main content area.
 
 **Distro sidebar** — a card with two labelled groups ("RPM", "DEB"). Each repo is a full-width button. Active: `background: var(--tint-purple); color: var(--brand-purple); font-weight: 700`. Inactive: `background: transparent; color: var(--text-secondary); font-weight: 500`. Clicking emits `update:art-repo`.
 
-**Right column** stacks three cards:
+**Right column** stacks two cards:
 
-**1. Repo header card** — distro name (17 px, bold) + OBS repo name (monospace, muted), with arch selector pills (`x86_64` / `aarch64`) right-aligned. Same active/inactive pattern as version pills. Clicking emits `update:art-arch`.
+**1. Repo + setup card** — a single card (`border-radius: 14px`) containing the repo header and the setup snippet together.
 
-**2. Setup snippet card** — labelled "REPOSITORY SETUP". Code block (`<pre>`) with copy button top-right. Snippet text is derived from `version`, current repo, and repo type:
+The **card header row** (flex, space-between): left side has the distro name (17 px, bold) + OBS repo name (monospace, muted); right side has the **arch selector**.
+
+**Arch selector** — a borderless pill-group wrapper (`background: var(--bg-muted); padding: 3px; border-radius: 9px`) with two buttons: `x86_64` and `aarch64` (display text matches the arch ID exactly). This uses the **same borderless style as the main tab switcher**, NOT the bordered version-pill style. Active button: `background: var(--bg-card); color: var(--brand-purple); box-shadow: 0 1px 2px rgba(0,0,0,0.10); border: none; border-radius: 6px`. Inactive button: `background: transparent; color: var(--text-muted); border: none`. Clicking emits `update:art-arch`.
+
+Below the header row: a "REPOSITORY SETUP" section label (uppercase, 10 px, 700 weight, `color: var(--text-muted)`), then a `<pre>` code block with `background: var(--bg-card-2)` and a copy button in the top-right corner. Snippet text is derived from `version`, current repo, and repo type:
 
 RPM template (repos `el9`, `el8`):
 ```
@@ -313,7 +317,7 @@ sudo apt-get install percona-postgresql-{version}
 
 Copy button: `copiedKey === 'repo-config'` → shows "✓ Copied" (green). Clicking emits `copy('repo-config', snippetText)`.
 
-**3. Package list card** — header "Packages" + subtitle `{count} available · {repoName} / {arch}`. Each row:
+**2. Package list card** — header "Packages" + subtitle `{count} available · {repoName} / {arch}`. Each row:
 
 | Element | Details |
 |---|---|
@@ -334,13 +338,22 @@ Responsive grid: `display: grid; grid-template-columns: repeat(auto-fill, minmax
 
 Each card is a `var(--bg-card)` rounded card (`border-radius: 12px; border: 1px solid var(--border)`) with four sections separated by `1px solid var(--border)` dividers:
 
-**Section 1 — Header** (`padding: 16px`): container box SVG icon in a `var(--info-tint)` rounded square + image name (bold 14 px) + base OS (muted 11.5 px). Right-aligned: "Published" badge (green) or "Build failing" badge (red) based on `image.published`.
+**Section 1 — Header** (`padding: 16px`): The icon is a specific box/shelf SVG in a `var(--info-tint)` rounded square:
+```html
+<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+     stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+  <rect x="2" y="7" width="20" height="14" rx="3"/>
+  <path d="M7 7V5a2 2 0 012-2h6a2 2 0 012 2v2"/>
+  <path d="M2 13h20"/>
+</svg>
+```
+Image name (bold 14 px) + base OS (muted 11.5 px). Right-aligned: "Published" badge (green) or "Build failing" badge (red) based on `image.published`.
 
-**Section 2 — Registry** (`padding: 10px 16px; background: var(--bg-muted)`): "REGISTRY" label (11 px uppercase muted) + `docker.io/percona/{name}` in monospace (`word-break: break-all`).
+**Section 2 — Registry** (`padding: 10px 18px; background: var(--bg-card-2)`): "REGISTRY" label (10 px uppercase muted, `font-weight: 700; letter-spacing: 0.07em`) + `docker.io/percona/{name}` in monospace (`word-break: break-all`).
 
-**Section 3 — Available tags** (`padding: 12px 16px`): "AVAILABLE TAGS" label + wrapping flex of tag chips. `tags[0]`: `background: var(--tint-purple); color: var(--brand-purple); font-weight: 700`. All others: `background: var(--bg-muted); color: var(--text-secondary)`. All chips: monospace 11 px, `padding: 2px 7px; border-radius: 4px`.
+**Section 3 — Available tags** (`padding: 12px 18px`): "AVAILABLE TAGS" label + wrapping flex of tag chips. `tags[0]`: `background: var(--tint-purple); color: var(--brand-purple); font-weight: 700`. All others: `background: var(--bg-muted); color: var(--text-secondary)`. All chips: monospace 11 px, `padding: 2px 7px; border-radius: 4px`.
 
-**Section 4 — Docker pull** (`padding: 12px 16px`): "DOCKER PULL" label + `<code>` block showing `image.pullCmd` + copy button. `copiedKey === image.id` → "✓ Copied" (green). Clicking emits `copy(image.id, image.pullCmd)`.
+**Section 4 — Docker pull** (`padding: 12px 18px`): "DOCKER PULL" label + `<code>` block with `background: var(--bg-card-2)` showing `image.pullCmd` + copy button. `copiedKey === image.id` → "✓ Copied" (green). Clicking emits `copy(image.id, image.pullCmd)`.
 
 ---
 
