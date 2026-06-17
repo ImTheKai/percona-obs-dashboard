@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, reactive } from 'vue'
 import type { PackageRow, RepoInfo } from '../composables/useArtifacts'
 
 const props = defineProps<{
@@ -20,16 +20,15 @@ const emit = defineEmits<{
 const rpmRepos = computed(() => props.repos.filter(r => r.type === 'rpm'))
 const debRepos = computed(() => props.repos.filter(r => r.type === 'deb'))
 
+// ----- snippet -----
+
 const snippet = computed(() => {
   const repo = props.selectedRepo
   if (!repo) return ''
   const ver = props.version
-  // OBS project: "isv:percona:ppg:17"
   const obsProject = `isv:percona:ppg:${ver}`
-  // URL form: each ":" → ":/" → "isv:/percona:/ppg:/17"
   const obsProjectUrl = obsProject.split(':').join(':/')
   const baseUrl = `https://download.opensuse.org/repositories/${obsProjectUrl}/${repo.obs}/`
-  // File-safe project ID: colons → underscores
   const projectId = obsProject.split(':').join('_')
 
   if (repo.obs.startsWith('openSUSE')) {
@@ -50,13 +49,51 @@ gpgcheck=0
 EOF`
   }
 
-  // DEB
   return `echo 'deb ${baseUrl} /' \\
   | tee /etc/apt/sources.list.d/${obsProject}.list
 curl -fsSL ${baseUrl}Release.key \\
   | gpg --dearmor | tee /etc/apt/trusted.gpg.d/${projectId}.gpg > /dev/null
 apt update`
 })
+
+// ----- binary expansion -----
+
+type BinaryState = string[] | 'loading' | 'error'
+const binaryCache = reactive<Record<string, BinaryState>>({})
+const expanded = reactive<Record<string, boolean>>({})
+
+function rowKey(row: PackageRow): string {
+  return `${row.project}/${row.name}`
+}
+
+async function toggleRow(row: PackageRow) {
+  const key = rowKey(row)
+  expanded[key] = !expanded[key]
+  if (!expanded[key] || binaryCache[key] !== undefined) return
+
+  binaryCache[key] = 'loading'
+  try {
+    const params = new URLSearchParams({
+      project: row.project,
+      repo: row.repo.obs,
+      arch: row.arch,
+      package: row.name,
+    })
+    const res = await fetch(`/api/binaries?${params}`)
+    if (!res.ok) throw new Error(res.statusText)
+    const data = await res.json() as { binaries: string[] }
+    binaryCache[key] = data.binaries
+  } catch {
+    binaryCache[key] = 'error'
+  }
+}
+
+function downloadUrl(row: PackageRow, filename: string): string {
+  const obsProjectUrl = row.project.split(':').join(':/')
+  return `https://download.opensuse.org/repositories/${obsProjectUrl}/${row.repo.obs}/${row.arch}/${filename}`
+}
+
+// ----- labels -----
 
 function scopeLabel(scope: string, version: string): string {
   if (scope === 'common') return 'Common'
@@ -68,10 +105,6 @@ function scopeLabel(scope: string, version: string): string {
 function installCmd(name: string, repo: RepoInfo): string {
   if (repo.obs.startsWith('openSUSE')) return `zypper install ${name}`
   return repo.type === 'rpm' ? `dnf install ${name}` : `apt-get install ${name}`
-}
-
-function downloadUrl(row: PackageRow): string {
-  return `https://build.opensuse.org/package/binaries/${row.project}/${row.name}/${row.repo.obs}?arch=${row.arch}`
 }
 </script>
 
@@ -150,22 +183,52 @@ function downloadUrl(row: PackageRow): string {
         <div class="pkg-list">
           <div
             v-for="row in packageRows"
-            :key="row.project + '/' + row.name"
-            class="pkg-row"
+            :key="rowKey(row)"
+            class="pkg-group"
           >
-            <code class="pkg-name">{{ row.name }}</code>
-            <span class="scope-badge" :class="'scope-' + row.scope">{{ scopeLabel(row.scope, version) }}</span>
-            <code class="install-cmd">{{ installCmd(row.name, row.repo) }}</code>
-            <span class="status-badge" :class="row.state === 'succeeded' ? 'status-built' : 'status-other'">
-              {{ row.state === 'succeeded' ? 'Built' : row.state }}
-            </span>
-            <a
-              class="download-btn"
-              :class="{ disabled: row.state !== 'succeeded' }"
-              :href="row.state === 'succeeded' ? downloadUrl(row) : undefined"
-              target="_blank"
-              :style="row.state !== 'succeeded' ? 'pointer-events: none' : ''"
-            >&#x2193; Download</a>
+            <!-- Package header row (click to expand) -->
+            <button
+              class="pkg-row"
+              :class="{ expanded: expanded[rowKey(row)] }"
+              @click="row.state === 'succeeded' ? toggleRow(row) : undefined"
+              :disabled="row.state !== 'succeeded'"
+              :title="row.state !== 'succeeded' ? 'Not built' : 'Click to show binaries'"
+            >
+              <span class="expand-glyph">{{ expanded[rowKey(row)] ? '▼' : '▶' }}</span>
+              <code class="pkg-name">{{ row.name }}</code>
+              <span class="scope-badge" :class="'scope-' + row.scope">{{ scopeLabel(row.scope, version) }}</span>
+              <code class="install-cmd">{{ installCmd(row.name, row.repo) }}</code>
+              <span class="status-badge" :class="row.state === 'succeeded' ? 'status-built' : 'status-other'">
+                {{ row.state === 'succeeded' ? 'Built' : row.state }}
+              </span>
+            </button>
+
+            <!-- Binary list (expanded) -->
+            <div v-if="expanded[rowKey(row)]" class="binary-list">
+              <div v-if="binaryCache[rowKey(row)] === 'loading'" class="binary-loading">
+                Loading…
+              </div>
+              <div v-else-if="binaryCache[rowKey(row)] === 'error'" class="binary-error">
+                Failed to load binaries.
+              </div>
+              <template v-else-if="Array.isArray(binaryCache[rowKey(row)])">
+                <div
+                  v-for="filename in (binaryCache[rowKey(row)] as string[])"
+                  :key="filename"
+                  class="binary-row"
+                >
+                  <code class="binary-name">{{ filename }}</code>
+                  <a
+                    class="download-btn"
+                    :href="downloadUrl(row, filename)"
+                    target="_blank"
+                  >&#x2193; Download</a>
+                </div>
+                <div v-if="(binaryCache[rowKey(row)] as string[]).length === 0" class="binary-empty">
+                  No distributable binaries.
+                </div>
+              </template>
+            </div>
           </div>
         </div>
       </div>
@@ -181,6 +244,8 @@ function downloadUrl(row: PackageRow): string {
   height: 100%;
   min-height: 0;
 }
+
+/* --- Sidebar --- */
 
 .sidebar {
   width: 220px;
@@ -234,18 +299,24 @@ function downloadUrl(row: PackageRow): string {
   font-weight: 700;
 }
 
+/* --- Main content --- */
+
 .content {
   flex: 1;
   display: flex;
   flex-direction: column;
   gap: 12px;
   min-width: 0;
+  overflow-y: auto;
 }
+
+/* --- Repo card --- */
 
 .repo-card {
   background: var(--bg-card);
   border-radius: 14px;
   overflow: hidden;
+  flex-shrink: 0;
 }
 
 .repo-header {
@@ -342,11 +413,13 @@ function downloadUrl(row: PackageRow): string {
   margin: 0;
 }
 
+/* --- Package list card --- */
+
 .pkg-card {
   background: var(--bg-card);
   border-radius: 12px;
   overflow: hidden;
-  flex: 1;
+  flex-shrink: 0;
 }
 
 .pkg-card-header {
@@ -371,24 +444,54 @@ function downloadUrl(row: PackageRow): string {
   overflow-y: auto;
 }
 
-.pkg-row {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  padding: 10px 18px;
+.pkg-group {
   border-bottom: 1px solid var(--border);
 }
 
-.pkg-row:last-child {
+.pkg-group:last-child {
   border-bottom: none;
+}
+
+/* Package header row — acts as a button */
+.pkg-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 18px;
+  width: 100%;
+  text-align: left;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+}
+
+.pkg-row:hover:not(:disabled) {
+  background: var(--bg-muted);
+}
+
+.pkg-row:disabled {
+  cursor: default;
+  opacity: 0.7;
+}
+
+.pkg-row.expanded {
+  background: var(--bg-muted);
+}
+
+.expand-glyph {
+  font-size: 9px;
+  color: var(--text-muted);
+  width: 10px;
+  flex-shrink: 0;
 }
 
 .pkg-name {
   font-family: var(--font-mono);
-  font-size: 13.5px;
+  font-size: 13px;
   font-weight: 700;
   flex: 1;
   min-width: 0;
+  text-align: left;
 }
 
 .scope-badge {
@@ -433,20 +536,55 @@ function downloadUrl(row: PackageRow): string {
   color: var(--text-muted);
 }
 
+/* Binary rows */
+.binary-list {
+  background: var(--bg-card-2);
+  border-top: 1px solid var(--border);
+  padding: 6px 0;
+}
+
+.binary-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 6px 18px 6px 38px;
+  gap: 12px;
+}
+
+.binary-row:hover {
+  background: var(--bg-muted);
+}
+
+.binary-name {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: var(--text-secondary);
+  flex: 1;
+  min-width: 0;
+  word-break: break-all;
+}
+
 .download-btn {
   font-size: 12px;
-  padding: 4px 10px;
+  padding: 3px 10px;
   border-radius: 6px;
   background: var(--brand-purple);
   color: #fff;
   text-decoration: none;
   white-space: nowrap;
   font-weight: 500;
+  flex-shrink: 0;
 }
 
-.download-btn.disabled {
-  background: var(--bg-muted);
+.binary-loading,
+.binary-error,
+.binary-empty {
+  padding: 8px 18px 8px 38px;
+  font-size: 12px;
   color: var(--text-muted);
-  pointer-events: none;
+}
+
+.binary-error {
+  color: var(--danger, #dc2626);
 }
 </style>
