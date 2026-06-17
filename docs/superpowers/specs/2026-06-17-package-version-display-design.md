@@ -17,7 +17,21 @@ Show the version of each package in the PackageCard and in relevant event log en
 
 Endpoint: `GET /build/{project}/_result?view=versrel&package={pkg}`
 
-Returns an XML document with one `<result>` element per build target. Each contains a `<status>` element with a `versrel` attribute (e.g. `versrel="17.5-1"`). We take the first non-empty `versrel` across all targets, since the version is the same for all targets of a given package.
+Returns an XML document structured like:
+
+```xml
+<resultlist state="...">
+  <result project="isv:percona:ppg:17" repository="UBI_9" arch="x86_64" code="published" state="published">
+    <status package="percona-pg_tde" code="succeeded" versrel="17.5-1"/>
+  </result>
+  <result project="isv:percona:ppg:17" repository="UBI_9" arch="aarch64" code="published" state="published">
+    <status package="percona-pg_tde" code="succeeded" versrel="17.5-1"/>
+  </result>
+  ...
+</resultlist>
+```
+
+The `versrel` attribute is on `<status>`, not `<result>`. We take the first non-empty `versrel` across all `<status>` elements, since the version is the same for all targets of a given package.
 
 If OBS returns no populated `versrel` (package not yet built), the task is a no-op.
 
