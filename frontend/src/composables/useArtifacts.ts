@@ -59,13 +59,11 @@ export function useArtifacts(
 
     if (!repo) return []
 
+    const exactProject = `isv:percona:ppg:${ver}`
     const rows: PackageRow[] = []
     for (const pkg of pkgs) {
-      const scope = pkg.scope as string
-      if (scope !== 'common' && scope !== 'ppgcommon' && scope !== 'version') continue
-
-      // version-scoped packages must belong to the selected version's project
-      if (scope === 'version' && !pkg.project.includes(':ppg:' + ver)) continue
+      // Only packages from the exact selected project — no subprojects, no common
+      if (pkg.project !== exactProject) continue
 
       // find a matching target for the selected repo × arch
       const target = pkg.targets?.find(
@@ -76,7 +74,7 @@ export function useArtifacts(
       rows.push({
         project: pkg.project,
         name: pkg.name,
-        scope: scope as 'common' | 'ppgcommon' | 'version',
+        scope: pkg.scope as 'common' | 'ppgcommon' | 'version',
         state: target.state ?? '',
         published: target.published === true,
         repo,
