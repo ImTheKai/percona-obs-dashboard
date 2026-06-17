@@ -213,6 +213,7 @@ function installCmd(name: string, repo: RepoInfo): string {
             >
               <span class="expand-glyph">{{ expanded[rowKey(row)] ? '▼' : '▶' }}</span>
               <code class="pkg-name">{{ row.name }}</code>
+              <code v-if="row.version" class="pkg-version">{{ row.version }}</code>
               <code class="install-cmd">{{ installCmd(row.name, row.repo) }}</code>
               <span class="status-badge" :class="row.published ? 'status-published' : stateClass(row.state)">
                 {{ row.published ? 'Published' : stateLabel(row.state) }}
@@ -525,6 +526,14 @@ function installCmd(name: string, repo: RepoInfo): string {
 .scope-badge.scope-version {
   background: var(--brand-purple-tint);
   color: var(--brand-purple);
+}
+
+.pkg-version {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--text-muted);
+  white-space: nowrap;
+  flex-shrink: 0;
 }
 
 .install-cmd {

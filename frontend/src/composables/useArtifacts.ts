@@ -11,6 +11,7 @@ export interface RepoInfo {
 export interface PackageRow {
   project: string
   name: string
+  version: string
   scope: 'common' | 'ppgcommon' | 'version'
   state: string
   published: boolean
@@ -74,6 +75,7 @@ export function useArtifacts(
       rows.push({
         project: pkg.project,
         name: pkg.name,
+        version: pkg.version ?? '',
         scope: pkg.scope as 'common' | 'ppgcommon' | 'version',
         state: target.state ?? '',
         published: target.published === true,
