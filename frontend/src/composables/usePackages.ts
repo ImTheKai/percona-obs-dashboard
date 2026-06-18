@@ -41,13 +41,12 @@ export function usePackages(
 
   async function refresh() {
     const base = toValue(apiBase)
-    const v = toValue(version)
     loading.value = true
     error.value = null
     try {
-      // Backend ignores the version segment (filters by product prefix only).
-      // Use "_" as a placeholder when version is "" (all-versions mode).
-      const res = await fetch(`${base}/${v || '_'}/packages`)
+      // Always fetch all versions so availableVersions stays complete.
+      // Client-side matchesVersion handles per-version filtering in `sorted`.
+      const res = await fetch(`${base}/_/packages`)
       if (!res.ok) throw new Error(`HTTP ${res.status}`)
       data.value = await res.json()
     } catch (e) {

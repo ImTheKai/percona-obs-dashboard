@@ -132,9 +132,6 @@ onMounted(() => {
 })
 useRealtimeStream(rawPackages, events, prGroups, refresh, refreshPR)
 
-// Re-fetch on version change
-watch(version, () => refresh())
-
 // Re-fetch on window change
 watch([windowMin, customFrom, customTo], () => refresh())
 </script>
