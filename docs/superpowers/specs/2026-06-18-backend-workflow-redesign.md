@@ -242,7 +242,7 @@ State transitions must be recorded at the persistence layer, not in `BuildStateT
 2. For each target where `old.state != new.state`, call the duration recording logic: close the open `target_state_durations` row (`SET exited_at = now`) and open a new one (`INSERT ... entered_at = now`).
 3. Write the new `targets_json`.
 
-This means every upsert path — poller, MQ consumer, and worker — automatically records transitions with no additional caller changes.
+This means every active package-state upsert path — poller (real-time packages), MQ consumer (real-time packages only; release messages are ignored except deletes), and worker — automatically records transitions with no additional caller changes.
 
 ### Task pipeline split
 
@@ -344,5 +344,5 @@ Release packages go through the detection pipeline (type check, publish-state ch
 | Store | `GetActivePackages`: `rollup_state != 'published' OR is_container IS NULL`; `UpsertPackageState` records state transitions inline; split `QueryPackages` into `QueryBuildPackages(root, product, version)` + `QueryReleasePackages`; both `DeletePackagesByProject` and `DeletePackage` delete from `target_state_durations` |
 | Poller | Immediate startup trigger; single configurable root; real-time vs. release discovery split; sets `is_release` on upsert; adds release packages to working set when detection incomplete |
 | Worker | `container` tag write-back on `is_container=1`; split task pipeline (real-time vs. release); `PublishStateTask` promotes to `published`; new `BinariesCheckTask`; suppress `hub.Notify` and skip `emitBuildEvents` for release packages |
-| MQ | Filter uses `cfg.OBSRoot`; `Classify(root, project) == KindRelease` suppresses `hub.Notify`, `AppendEvent`, and `ws.Signal` for all release message types |
+| MQ | Filter uses `cfg.OBSRoot`; non-delete release messages ignored entirely (no DB write, no broadcast, no event, no signal); delete release messages clean up DB silently (no broadcast, no event) |
 | Handlers | Releases served from DB via `QueryReleasePackages`; `packagesHandler` uses `QueryBuildPackages(root, product, version)` (union of dev + product-common + common); `api.NewRouter` and `mq.NewConsumer` receive `cfg.OBSRoot` explicitly; worker suppresses SSE for release packages |
