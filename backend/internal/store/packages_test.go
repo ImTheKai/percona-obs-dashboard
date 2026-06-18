@@ -100,27 +100,27 @@ func TestGetActivePackages(t *testing.T) {
 	trueVal := true
 	falseVal := false
 
-	// Succeeded + is_container already detected: excluded (nothing left to do).
-	detectedContainer := &model.Package{
+	// Published + is_container detected: excluded (terminal published state).
+	publishedContainer := &model.Package{
 		Project: "isv:percona", Name: "pkg-container-done", Scope: model.ScopeContainer,
-		RollupState: model.RollupSucceeded, OKTargets: 1, TotalTargets: 1,
+		RollupState: model.RollupPublished, OKTargets: 1, TotalTargets: 1,
 		IsContainer: &trueVal,
 		Targets:     []model.Target{{Repo: "repo", Arch: "x86_64", State: "succeeded"}},
 		UpdatedAt:   now,
 	}
-	if err := UpsertPackageState(db, detectedContainer, detectedContainer.UpdatedAt); err != nil {
+	if err := UpsertPackageState(db, publishedContainer, publishedContainer.UpdatedAt); err != nil {
 		t.Fatal(err)
 	}
 
-	// Succeeded + is_container=false (dependency in container project): also excluded.
-	detectedNonContainer := &model.Package{
+	// Published + is_container=false: also excluded.
+	publishedNonContainer := &model.Package{
 		Project: "isv:percona", Name: "pkg-dep-done", Scope: model.ScopeContainer,
-		RollupState: model.RollupSucceeded, OKTargets: 1, TotalTargets: 1,
+		RollupState: model.RollupPublished, OKTargets: 1, TotalTargets: 1,
 		IsContainer: &falseVal,
 		Targets:     []model.Target{{Repo: "repo", Arch: "x86_64", State: "succeeded"}},
 		UpdatedAt:   now,
 	}
-	if err := UpsertPackageState(db, detectedNonContainer, detectedNonContainer.UpdatedAt); err != nil {
+	if err := UpsertPackageState(db, publishedNonContainer, publishedNonContainer.UpdatedAt); err != nil {
 		t.Fatal(err)
 	}
 
@@ -165,10 +165,10 @@ func TestGetActivePackages(t *testing.T) {
 		t.Error("expected pkg-fail (failing) to be included")
 	}
 	if names["pkg-container-done"] {
-		t.Error("expected pkg-container-done (succeeded + detected) to be excluded")
+		t.Error("expected pkg-container-done (published + detected) to be excluded")
 	}
 	if names["pkg-dep-done"] {
-		t.Error("expected pkg-dep-done (succeeded + detected non-container) to be excluded")
+		t.Error("expected pkg-dep-done (published + detected non-container) to be excluded")
 	}
 }
 
@@ -244,6 +244,166 @@ func TestGetFinishedPackagesByProject(t *testing.T) {
 }
 
 func boolPtr(b bool) *bool { return &b }
+
+func TestQueryBuildPackages(t *testing.T) {
+	db, err := Open(":memory:")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer db.Close()
+
+	now := time.Now().UTC()
+	insert := func(project, name string) {
+		db.Exec(`INSERT INTO packages (project, name, scope, rollup_state, ok_targets, total_targets, targets_json, updated_at)
+            VALUES (?, ?, 'version', 'building', 0, 0, '[]', ?)`, project, name, now)
+	}
+	insert("isv:percona:ppg:17", "pg_tde")
+	insert("isv:percona:ppg:17:containers:ubi9", "pg_container")
+	insert("isv:percona:ppg:common", "common_pkg")
+	insert("isv:percona:common", "global_common")
+	insert("isv:percona:ppg:releases:17", "release_pkg")
+
+	pkgs, err := QueryBuildPackages(db, "isv:percona", "ppg", "17")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	names := make(map[string]bool)
+	for _, p := range pkgs {
+		names[p.Name] = true
+	}
+	for _, want := range []string{"pg_tde", "pg_container", "common_pkg", "global_common"} {
+		if !names[want] {
+			t.Errorf("missing expected package %q", want)
+		}
+	}
+	if names["release_pkg"] {
+		t.Error("release_pkg should not appear in build packages")
+	}
+}
+
+func TestQueryReleasePackages(t *testing.T) {
+	db, err := Open(":memory:")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer db.Close()
+
+	now := time.Now().UTC()
+	db.Exec(`INSERT INTO packages (project, name, scope, rollup_state, ok_targets, total_targets, targets_json, updated_at, is_release)
+        VALUES ('isv:percona:ppg:releases:17', 'pg_tde', 'release', 'building', 0, 0, '[]', ?, 1)`, now)
+	db.Exec(`INSERT INTO packages (project, name, scope, rollup_state, ok_targets, total_targets, targets_json, updated_at)
+        VALUES ('isv:percona:ppg:17', 'pg_tde_dev', 'version', 'building', 0, 0, '[]', ?)`, now)
+
+	pkgs, err := QueryReleasePackages(db, "isv:percona:ppg:releases")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(pkgs) != 1 {
+		t.Fatalf("expected 1 release package, got %d", len(pkgs))
+	}
+	if pkgs[0].Name != "pg_tde" {
+		t.Errorf("expected pg_tde, got %q", pkgs[0].Name)
+	}
+	if !pkgs[0].IsRelease {
+		t.Error("IsRelease should be true")
+	}
+}
+
+func TestStateTransitionsRecorded(t *testing.T) {
+	db, err := Open(":memory:")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer db.Close()
+
+	pkg := &model.Package{
+		Project:     "isv:percona:ppg:17",
+		Name:        "pg_tde",
+		Scope:       model.ScopeVersion,
+		RollupState: model.RollupBuilding,
+		Targets:     []model.Target{{Repo: "RockyLinux_9", Arch: "x86_64", State: "building"}},
+		UpdatedAt:   time.Now().UTC(),
+	}
+	now := time.Now().UTC()
+	if err := UpsertPackageState(db, pkg, now); err != nil {
+		t.Fatal(err)
+	}
+
+	// Transition to succeeded.
+	pkg.Targets[0].State = "succeeded"
+	pkg.RollupState = model.RollupSucceeded
+	if err := UpsertPackageState(db, pkg, now.Add(time.Minute)); err != nil {
+		t.Fatal(err)
+	}
+
+	var count int
+	db.QueryRow(`SELECT COUNT(*) FROM target_state_durations WHERE project = ? AND package = ?`,
+		pkg.Project, pkg.Name).Scan(&count)
+	if count != 2 {
+		t.Errorf("expected 2 duration rows, got %d", count)
+	}
+	var durMs sql.NullInt64
+	db.QueryRow(`SELECT duration_ms FROM target_state_durations WHERE state = 'building' AND exited_at IS NOT NULL`).Scan(&durMs)
+	if !durMs.Valid || durMs.Int64 <= 0 {
+		t.Error("expected positive duration_ms for closed building entry")
+	}
+}
+
+func TestUpsertPreservesTagsAndIsRelease(t *testing.T) {
+	db, err := Open(":memory:")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer db.Close()
+
+	// Insert with tags and is_release set.
+	pkg := &model.Package{
+		Project:     "isv:percona:ppg:releases:17",
+		Name:        "pg_tde",
+		Scope:       model.ScopeRelease,
+		Tags:        []string{"ppg", "release"},
+		IsRelease:   true,
+		RollupState: model.RollupBuilding,
+		Targets:     []model.Target{},
+		UpdatedAt:   time.Now().UTC(),
+	}
+	now := time.Now().UTC()
+	if err := UpsertPackageState(db, pkg, now); err != nil {
+		t.Fatal(err)
+	}
+
+	// Upsert again with empty Tags and IsRelease=false (simulating worker update).
+	stub := &model.Package{
+		Project:     "isv:percona:ppg:releases:17",
+		Name:        "pg_tde",
+		Scope:       model.ScopeRelease,
+		Tags:        nil,
+		IsRelease:   false,
+		RollupState: model.RollupBuilding,
+		Targets:     []model.Target{},
+		UpdatedAt:   time.Now().UTC(),
+	}
+	if err := UpsertPackageState(db, stub, now.Add(time.Second)); err != nil {
+		t.Fatal(err)
+	}
+
+	// Tags and is_release should be preserved from the first insert.
+	pkgs, err := QueryPackages(db, "isv:percona:ppg:releases:17")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(pkgs) != 1 {
+		t.Fatalf("expected 1 package, got %d", len(pkgs))
+	}
+	p := pkgs[0]
+	if len(p.Tags) != 2 || p.Tags[0] != "ppg" || p.Tags[1] != "release" {
+		t.Errorf("tags not preserved: got %v", p.Tags)
+	}
+	if !p.IsRelease {
+		t.Error("is_release not preserved")
+	}
+}
 
 func TestContainerTagsRoundtrip(t *testing.T) {
 	db, err := Open(":memory:")

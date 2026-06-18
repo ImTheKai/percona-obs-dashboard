@@ -11,10 +11,33 @@ import (
 
 // UpsertPackageState inserts or replaces a package row.
 func UpsertPackageState(db *sql.DB, p *model.Package, now time.Time) error {
+	// Read current targets for state-duration recording (before overwrite).
+	var prevTargetsJSON string
+	var prevTargets []model.Target
+	if err := db.QueryRow(`SELECT targets_json FROM packages WHERE project = ? AND name = ?`,
+		p.Project, p.Name).Scan(&prevTargetsJSON); err == nil {
+		_ = json.Unmarshal([]byte(prevTargetsJSON), &prevTargets)
+	}
+
 	targetsJSON, err := json.Marshal(p.Targets)
 	if err != nil {
 		return err
 	}
+	tagsJSON, err := json.Marshal(p.Tags)
+	if err != nil {
+		return err
+	}
+	if tagsJSON == nil || string(tagsJSON) == "null" {
+		tagsJSON = []byte("[]")
+	}
+	containerTagsJSON, err := json.Marshal(p.ContainerTags)
+	if err != nil {
+		return err
+	}
+	if containerTagsJSON == nil {
+		containerTagsJSON = []byte("[]")
+	}
+
 	var trigWhat, trigKind sql.NullString
 	var trigAt sql.NullTime
 	if p.Trigger != nil {
@@ -30,47 +53,92 @@ func UpsertPackageState(db *sql.DB, p *model.Package, now time.Time) error {
 			isContainerVal = 0
 		}
 	}
-	containerTagsJSON, err := json.Marshal(p.ContainerTags)
-	if err != nil {
-		return err
+	isReleaseVal := 0
+	if p.IsRelease {
+		isReleaseVal = 1
 	}
-	if containerTagsJSON == nil {
-		containerTagsJSON = []byte("[]")
-	}
+
 	_, err = db.Exec(`
 		INSERT INTO packages
 			(project, name, scope, rollup_state, ok_targets, total_targets,
 			 trigger_what, trigger_kind, trigger_at, targets_json, updated_at,
-			 state_changed_at, is_container, version, container_tags)
-		VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+			 state_changed_at, is_container, version, container_tags, tags, is_release)
+		VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
 		ON CONFLICT(project, name) DO UPDATE SET
-			scope=excluded.scope, rollup_state=excluded.rollup_state,
-			ok_targets=excluded.ok_targets, total_targets=excluded.total_targets,
-			trigger_what=excluded.trigger_what, trigger_kind=excluded.trigger_kind,
-			trigger_at=excluded.trigger_at, targets_json=excluded.targets_json,
+			scope=excluded.scope,
+			rollup_state=excluded.rollup_state,
+			ok_targets=excluded.ok_targets,
+			total_targets=excluded.total_targets,
+			trigger_what=excluded.trigger_what,
+			trigger_kind=excluded.trigger_kind,
+			trigger_at=excluded.trigger_at,
+			targets_json=excluded.targets_json,
 			updated_at=excluded.updated_at,
-			is_container=CASE WHEN excluded.is_container IS NOT NULL THEN excluded.is_container ELSE is_container END,
+			is_container=CASE WHEN excluded.is_container IS NOT NULL
+			                   THEN excluded.is_container ELSE is_container END,
 			version=excluded.version,
 			container_tags=excluded.container_tags,
+			tags=CASE WHEN excluded.tags != '[]' THEN excluded.tags ELSE tags END,
+			is_release=CASE WHEN excluded.is_release != 0 THEN 1 ELSE is_release END,
 			state_changed_at = CASE
 				WHEN excluded.rollup_state != rollup_state THEN excluded.state_changed_at
-				WHEN state_changed_at IS NULL             THEN excluded.state_changed_at
+				WHEN state_changed_at IS NULL              THEN excluded.state_changed_at
 				ELSE state_changed_at
 			END`,
 		p.Project, p.Name, string(p.Scope), string(p.RollupState),
 		p.OKTargets, p.TotalTargets,
 		trigWhat, trigKind, trigAt,
-		string(targetsJSON), p.UpdatedAt,
-		now,
-		isContainerVal, p.Version,
-		string(containerTagsJSON),
+		string(targetsJSON), p.UpdatedAt, now,
+		isContainerVal, p.Version, string(containerTagsJSON),
+		string(tagsJSON), isReleaseVal,
 	)
-	return err
+	if err != nil {
+		return err
+	}
+
+	// Record state duration transitions (errors are non-fatal).
+	recordStateTransitions(db, p.Project, p.Name, prevTargets, p.Targets, now)
+	return nil
+}
+
+// recordStateTransitions updates target_state_durations when a target's state
+// changes or a new target appears. Called only from UpsertPackageState.
+func recordStateTransitions(db *sql.DB, project, pkg string, prev, next []model.Target, now time.Time) {
+	nowStr := now.UTC().Format("2006-01-02T15:04:05.999Z07:00")
+	oldByKey := make(map[string]model.Target, len(prev))
+	for _, t := range prev {
+		oldByKey[t.Repo+"/"+t.Arch] = t
+	}
+	for _, t := range next {
+		key := t.Repo + "/" + t.Arch
+		old, existed := oldByKey[key]
+		if existed && old.State == t.State {
+			continue // no change
+		}
+		if existed {
+			// Close the previous open entry.
+			db.Exec(`
+				UPDATE target_state_durations
+				SET exited_at = ?,
+				    duration_ms = CAST((julianday(?) - julianday(entered_at)) * 86400000 AS INTEGER)
+				WHERE project = ? AND package = ? AND repo = ? AND arch = ?
+				  AND state = ? AND exited_at IS NULL`,
+				nowStr, nowStr, project, pkg, t.Repo, t.Arch, old.State,
+			)
+		}
+		// Open a new entry for the new state.
+		db.Exec(`
+			INSERT INTO target_state_durations (project, package, repo, arch, state, entered_at)
+			VALUES (?, ?, ?, ?, ?, ?)`,
+			project, pkg, t.Repo, t.Arch, t.State, nowStr,
+		)
+	}
 }
 
 // DeletePackagesByProject removes all package rows for an exact project name.
 // Used by the poller to garbage-collect projects that no longer exist in OBS.
 func DeletePackagesByProject(db *sql.DB, project string) error {
+	db.Exec(`DELETE FROM target_state_durations WHERE project = ?`, project)
 	_, err := db.Exec(`DELETE FROM packages WHERE project = ?`, project)
 	return err
 }
@@ -78,13 +146,14 @@ func DeletePackagesByProject(db *sql.DB, project string) error {
 // DeletePackage removes a single package row.
 // Used by the MQ consumer on package.delete events.
 func DeletePackage(db *sql.DB, project, name string) error {
+	db.Exec(`DELETE FROM target_state_durations WHERE project = ? AND package = ?`, project, name)
 	_, err := db.Exec(`DELETE FROM packages WHERE project = ? AND name = ?`, project, name)
 	return err
 }
 
 const packageSelectCols = ` project, name, scope, rollup_state, ok_targets, total_targets,
 	trigger_what, trigger_kind, trigger_at, targets_json, updated_at,
-	state_changed_at, is_container, version, container_tags`
+	state_changed_at, is_container, version, container_tags, tags, is_release`
 
 // scanPackages is a helper that extracts the scan loop pattern used by multiple query functions.
 // It expects rows to have been created with the standard package column order:
@@ -101,13 +170,15 @@ func scanPackages(rows *sql.Rows) ([]*model.Package, error) {
 		var stateChangedAt sql.NullTime
 		var isContainerNull sql.NullInt64
 		var containerTagsJSON string
+		var tagsJSON string
+		var isRelease int
 		if err := rows.Scan(
 			&p.Project, &p.Name, &p.Scope, &p.RollupState,
 			&p.OKTargets, &p.TotalTargets,
 			&trigWhat, &trigKind, &trigAt,
 			&targetsJSON, &p.UpdatedAt,
 			&stateChangedAt, &isContainerNull, &p.Version,
-			&containerTagsJSON,
+			&containerTagsJSON, &tagsJSON, &isRelease,
 		); err != nil {
 			return nil, err
 		}
@@ -134,6 +205,12 @@ func scanPackages(rows *sql.Rows) ([]*model.Package, error) {
 				return nil, err
 			}
 		}
+		if tagsJSON != "" && tagsJSON != "[]" {
+			if err := json.Unmarshal([]byte(tagsJSON), &p.Tags); err != nil {
+				return nil, err
+			}
+		}
+		p.IsRelease = isRelease != 0
 		pkgs = append(pkgs, p)
 	}
 	return pkgs, rows.Err()
@@ -199,6 +276,45 @@ func QueryPackages(db *sql.DB, projectPrefix string) ([]*model.Package, error) {
 	return scanPackages(rows)
 }
 
+// QueryBuildPackages returns packages for the builds tab: version-specific project
+// (including container subprojects), product-common subtree, and global common subtree.
+// root is e.g. "isv:percona", product is "ppg", version is "17".
+func QueryBuildPackages(db *sql.DB, root, product, version string) ([]*model.Package, error) {
+	vp := root + ":" + product + ":" + version
+	cp := root + ":" + product + ":common"
+	gp := root + ":common"
+	rows, err := db.Query(`SELECT`+packageSelectCols+`
+		FROM packages
+		WHERE (project = ? OR project LIKE ? || ':%')
+		   OR (project = ? OR project LIKE ? || ':%')
+		   OR (project = ? OR project LIKE ? || ':%')
+		ORDER BY project, name`,
+		vp, vp, cp, cp, gp, gp,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	return scanPackages(rows)
+}
+
+// QueryReleasePackages returns packages in the release subtree (is_release=1).
+// prefix is e.g. "isv:percona:ppg:releases".
+func QueryReleasePackages(db *sql.DB, prefix string) ([]*model.Package, error) {
+	rows, err := db.Query(`SELECT`+packageSelectCols+`
+		FROM packages
+		WHERE (project = ? OR project LIKE ? || ':%')
+		  AND is_release = 1
+		ORDER BY project, name`,
+		prefix, prefix,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	return scanPackages(rows)
+}
+
 // GetActivePackages returns packages that need worker attention:
 // - packages not yet in a final succeeded state, plus
 // - packages whose is_container type has not yet been detected (is_container IS NULL),
@@ -206,7 +322,7 @@ func QueryPackages(db *sql.DB, projectPrefix string) ([]*model.Package, error) {
 func GetActivePackages(db *sql.DB) ([]*model.Package, error) {
 	rows, err := db.Query(`SELECT`+packageSelectCols+`
 		FROM packages
-		WHERE rollup_state != 'succeeded' OR is_container IS NULL
+		WHERE rollup_state != 'published' OR is_container IS NULL
 		ORDER BY project, name`,
 	)
 	if err != nil {

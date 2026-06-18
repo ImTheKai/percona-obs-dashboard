@@ -15,6 +15,7 @@ const (
 	RollupFinished  RollupState = "finished"
 	RollupScheduled RollupState = "scheduled"
 	RollupSucceeded RollupState = "succeeded"
+	RollupPublished RollupState = "published" // terminal: all targets built and repos published
 )
 
 // Severity returns a sortable integer: higher = worse (for failure-first ordering).
@@ -67,6 +68,8 @@ type Package struct {
 	Project        string      `json:"project"`
 	Name           string      `json:"name"`
 	Scope          Scope       `json:"scope"`
+	Tags           []string    `json:"tags,omitempty"`
+	IsRelease      bool        `json:"is_release,omitempty"`
 	RollupState    RollupState `json:"rollup_state"`
 	OKTargets      int         `json:"ok_targets"`
 	TotalTargets   int         `json:"total_targets"`
