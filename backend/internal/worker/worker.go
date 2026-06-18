@@ -66,8 +66,9 @@ func (p *Pool) ProcessOnce(ctx context.Context, pkg *model.Package) {
 	// was observed, not when the (potentially slow) task chain finished.
 	now := time.Now().UTC()
 
-	// Snapshot target state before task chain. BuildReasonPackages is a slice
-	// field — deep copy to avoid aliasing if a task appends in-place.
+	// Snapshot target state and rollup before task chain.
+	// BuildReasonPackages is a slice field — deep copy to avoid aliasing.
+	prevRollup := pkg.RollupState
 	oldTargets := make([]model.Target, len(pkg.Targets))
 	for i, t := range pkg.Targets {
 		c := t
@@ -96,7 +97,7 @@ func (p *Pool) ProcessOnce(ctx context.Context, pkg *model.Package) {
 
 	if !pkg.IsRelease {
 		p.hub.Notify(hubpkg.PackageUpdate(pkg))
-		p.emitBuildEvents(pkg, oldTargets)
+		p.emitBuildEvents(pkg, oldTargets, prevRollup)
 	}
 
 	if pkg.RollupState == model.RollupPublished && pkg.IsContainer != nil {
@@ -109,8 +110,10 @@ var failStates = map[string]bool{"failed": true, "unresolvable": true, "broken":
 const obsBase = "https://build.opensuse.org"
 
 // emitBuildEvents compares oldTargets with pkg.Targets and appends one event
-// per target for each meaningful state transition.
-func (p *Pool) emitBuildEvents(pkg *model.Package, oldTargets []model.Target) {
+// per target for each meaningful state transition. prevRollup is the package's
+// rollup state before the task chain ran; published events are suppressed when
+// the package was already published to avoid duplicates on re-processing.
+func (p *Pool) emitBuildEvents(pkg *model.Package, oldTargets []model.Target, prevRollup model.RollupState) {
 	oldByKey := make(map[string]model.Target, len(oldTargets))
 	for _, t := range oldTargets {
 		oldByKey[t.Repo+"/"+t.Arch] = t
@@ -187,7 +190,7 @@ func (p *Pool) emitBuildEvents(pkg *model.Package, oldTargets []model.Target) {
 		}
 
 		// published.
-		if !old.Published && t.Published {
+		if !old.Published && t.Published && prevRollup != model.RollupPublished {
 			p.appendEvent(&model.Event{
 				ID:      "evt_" + ulid.Make().String(),
 				Type:    model.EventPublished,
