@@ -190,7 +190,8 @@ func migrateTagsAndIsRelease(db *sql.DB) error {
 }
 
 // migrateSucceededToPublished promotes packages where rollup_state = 'succeeded'
-// and every target in targets_json already has published=true to rollup_state = 'published'.
+// and every active (non-disabled/excluded/locked) target already has published=true.
+// The target state 'published' corresponds to model.RollupPublished added in Task 3.
 // Idempotent: only processes rows still at 'succeeded'.
 func migrateSucceededToPublished(db *sql.DB) error {
 	rows, err := db.Query(`SELECT project, name, targets_json FROM packages WHERE rollup_state = 'succeeded'`)
@@ -226,14 +227,20 @@ func migrateSucceededToPublished(db *sql.DB) error {
 		}
 		allPublished := true
 		for _, t := range targets {
-			if t.State == "succeeded" && !t.Published {
+			switch t.State {
+			case "disabled", "excluded", "locked":
+				continue // skip non-active targets
+			}
+			if t.State != "succeeded" || !t.Published {
 				allPublished = false
 				break
 			}
 		}
-		if allPublished {
-			db.Exec(`UPDATE packages SET rollup_state = 'published' WHERE project = ? AND name = ?`,
-				c.project, c.name)
+		if allPublished && len(targets) > 0 {
+			if _, err := db.Exec(`UPDATE packages SET rollup_state = 'published' WHERE project = ? AND name = ?`,
+				c.project, c.name); err != nil {
+				return err
+			}
 		}
 	}
 	return nil
