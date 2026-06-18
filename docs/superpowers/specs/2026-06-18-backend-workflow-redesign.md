@@ -106,7 +106,7 @@ Set by the poller at upsert time: `1` for `KindRelease` projects, `0` for all ot
 `published` is added to the `RollupState` enum in `model/types.go`. It is the single terminal state for all package types:
 
 - **Real-time packages:** `PublishStateTask` promotes rollup to `published` when every target in `targets_json` has `published = true` and `rollup_state` was `succeeded`. If only some targets are published, rollup stays at `succeeded` and the package remains in the working set for re-check.
-- **Release packages:** `BinariesCheckTask` promotes rollup to `published` when binaries are confirmed present.
+- **Release packages:** `BinariesCheckTask` promotes rollup to `published` when repository publish state is confirmed (all non-skipped targets show `state="published"` via `RepoPublishStates`). This is the correct signal for a release snapshot — if the repo is published, the packages are available. Actual binary-file enumeration is not performed.
 
 **Migration:** Set `rollup_state = 'published'` for existing rows where `rollup_state = 'succeeded'` and all entries in `targets_json` have `"published": true`.
 
@@ -272,7 +272,7 @@ This condition is identical for real-time and release packages:
 
 `QueryPackages` is split into two functions with distinct filters:
 
-- `QueryBuildPackages(db, root, product, version string) []Package` — returns non-release packages for the builds tab. Executes a union using exact-plus-subproject matching to avoid version prefix collisions (e.g. version `1` matching `10`, `11`): `(project = '<root>:<product>:<version>' OR project LIKE '<root>:<product>:<version>:%')` for dev packages, same pattern for `<root>:<product>:common` and `<root>:common`. Adds `AND is_release = 0`. The `product` parameter preserves the generic `/api/products/{product}/{version}` route contract.
+- `QueryBuildPackages(db, root, product, version string) []Package` — returns non-release packages for the builds tab. Executes a union using exact-plus-subproject matching to avoid version prefix collisions (e.g. version `1` matching `10`, `11`): `(project = '<root>:<product>:<version>' OR project LIKE '<root>:<product>:<version>:%')` for dev packages, same pattern for `<root>:<product>:common` and `<root>:common`. Adds `AND is_release = 0`. The `product` parameter preserves the generic `/api/products/{product}/{version}` route shape. **Note:** PPG is the only supported product in this redesign. The classifier (`KindDev`, `KindPPGCommon`) and poller monitoring are PPG-specific. Non-PPG products are out of scope; the generic route and `product` parameter are forward-looking design choices only.
 - `QueryReleasePackages(db, prefix string) []Package` — returns only release packages (`AND is_release = 1`) for the artifacts tab. Used by `releasesPackagesHandler`.
 
 The original `QueryPackages(db, projectPrefix)` (prefix LIKE query, no release filter) is retained for internal uses such as GC that need to operate across all package types.
@@ -296,8 +296,7 @@ Response formats are unchanged.
 
 - `api.NewRouter(db, hub, obsClient, cfg)` — passes `cfg.OBSRoot` to handlers that build project-path prefixes.
 - `mq.NewConsumer(url, cfg.OBSRoot, ...)` — uses root to filter incoming AMQP messages.
-
-`obs.NewPoller(client, db, interval, hub, ws)` also needs a `root string` parameter — today it does not receive config or root. Updated signature: `obs.NewPoller(client, db, interval, hub, ws, root string)`.
+- `obs.NewPoller(client, db, interval, hub, ws, root string)` — today it does not receive config or root; `root` is needed for `SearchProjects` and `Classify` calls.
 
 ### SSE stream
 
