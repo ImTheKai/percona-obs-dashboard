@@ -182,8 +182,8 @@ Within each `tick()`, the classifier drives two code paths:
 3. Call `ws.Add(pkg)` for packages not yet in the working set.
 
 **Release projects** (`kind.IsRealTime() == false`):
-1. Call `BuildResults` — the OBS `_results` API works for release projects and returns each target with `code="published" state="published"` once binaries are available. This gives both the target list and their publish state in a single call; no directory traversal is needed.
-2. Upsert packages to DB with `is_release = 1`, project-level tags, and targets populated from `BuildResults`. A newly discovered release package with no prior DB row starts with `rollup_state = 'building'`; an already-known package retains its current rollup state.
+1. Call `BuildResults` — the OBS `_result` API works for release projects and returns package names with per-target `<status code="succeeded">`. This gives the full package+target list in one call; no directory traversal is needed. Note: `BuildResults` captures only the package-level status, not the result-level `state="published"` wrapper — rollup state for release packages is therefore **not** derived from `BuildResults`; that is `BinariesCheckTask`'s responsibility.
+2. Upsert packages to DB with `is_release = 1`, project-level tags, and targets populated from `BuildResults`. A newly discovered release package with no prior DB row starts with `rollup_state = 'building'`; an already-known package retains its existing rollup state unchanged.
 3. Call `ws.Add(pkg)` for packages where `rollup_state != 'published' OR is_container IS NULL` — these need detection work (type check + binaries check). Newly inserted release packages always qualify since they start with `rollup_state = 'building'` and `is_container = NULL`.
 
 ### Garbage collection
@@ -236,7 +236,7 @@ The worker runs a different pipeline based on `pkg.IsRelease`:
 
 **Release pipeline** (detection and verification only):
 1. `PackageTypeTask` — detect `is_container`
-2. `BinariesCheckTask` — check if binaries are present via `obs.PackageBinaries`; promote rollup to `published` when binaries confirmed
+2. `BinariesCheckTask` — call `obs.RepoPublishStates` to get result-level publish state per repo/arch; promote rollup to `published` when all non-skipped targets are published
 3. `VersionTask` — get version once type is known
 4. `ContainerTagsTask` — get container tags if applicable
 
@@ -246,11 +246,10 @@ The worker runs a different pipeline based on `pkg.IsRelease`:
 
 New task in `internal/obs/tasks.go`:
 
-- Calls `obs.BuildResults(ctx, project)` for the release package's project to get the current target states.
-- A target with `code="published" state="published"` in `_results` confirms its binaries are present — no separate `PackageBinaries` call per target is needed.
-- Only sets `rollup_state = 'published'` when **all** targets show `state="published"` — partial availability is not sufficient.
-- If any target is not yet published: sets `rollup_state = 'building'` (keeps package in working set for next check).
-- Updates `targets_json` with the refreshed target list from this call.
+- Calls `obs.RepoPublishStates(ctx, project, pkg)` — this already fetches the result-level `state="published"` per repo/arch, which is exactly what the OBS `_result` response carries on the `<result>` wrapper element. `BuildResults` is not used here since it only captures the inner `<status code="succeeded">` and drops the result-level publish state.
+- Applies the same skip logic as `PublishStateTask`: ignores targets whose state is disabled, excluded, or locked (same `skipState` predicate used by real-time builds), so an intentionally disabled target does not keep a release package stuck in `building` forever.
+- Only sets `rollup_state = 'published'` when **all** non-skipped targets show `state = "published"` — partial availability is not sufficient.
+- If any non-skipped target is not yet published: sets `rollup_state = 'building'` (keeps package in working set for next check).
 
 ### Auto-remove from working set
 
