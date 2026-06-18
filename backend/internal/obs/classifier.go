@@ -2,8 +2,6 @@ package obs
 
 import (
 	"strings"
-
-	"github.com/percona/obs-dashboard/internal/model"
 )
 
 // ProjectKind categorises an OBS project relative to the configured root.
@@ -15,7 +13,7 @@ const (
 	// (e.g. <root>:ppg:17:containers:ubi9) intentionally map here, not a separate
 	// KindContainer. Container detection is per-package via is_container, not at the
 	// project level — this was an explicit design decision. Events from container
-	// subprojects therefore use scope ScopeVersion, not ScopeContainer.
+	// subprojects therefore use the ppg tag, not the container tag.
 	KindDev       // <root>:ppg:<version>[:<subproject>]
 	KindPR        // <root>:PR:pr-<n>:ppg:<version>[:<subproject>]
 	KindPPGCommon // <root>:ppg:common[:<subproject>]
@@ -29,26 +27,6 @@ func (k ProjectKind) IsRealTime() bool {
 		return true
 	}
 	return false
-}
-
-// EventScope returns the model.Scope to use for SSE events from this project kind.
-func (k ProjectKind) EventScope() model.Scope {
-	switch k {
-	case KindDev:
-		return model.ScopeVersion
-	case KindPR:
-		return model.ScopePR
-	case KindPPGCommon:
-		return model.ScopePPGCommon
-	case KindCommon:
-		return model.ScopeCommon
-	case KindRelease:
-		return model.ScopeRelease
-	default:
-		// KindUnknown returns ScopeCommon as a safe fallback. Callers that need to
-		// filter unknowns should check kind == KindUnknown before calling EventScope.
-		return model.ScopeCommon
-	}
 }
 
 // Classify returns the ProjectKind for project relative to root.

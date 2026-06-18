@@ -27,7 +27,6 @@ func TestBuildStateTask(t *testing.T) {
 	pkg := &model.Package{
 		Project:     "isv:percona",
 		Name:        "mypkg",
-		Scope:       model.ScopeCommon,
 		RollupState: model.RollupFailed,
 		Targets:     []model.Target{{Repo: "repo", Arch: "x86_64", State: "failed"}},
 		UpdatedAt:   time.Now().UTC(),
@@ -61,7 +60,6 @@ func TestBlockedReasonTask(t *testing.T) {
 	pkg := &model.Package{
 		Project:     "isv:percona",
 		Name:        "mypkg",
-		Scope:       model.ScopeCommon,
 		RollupState: model.RollupBlocked,
 		Targets:     []model.Target{{Repo: "repo", Arch: "x86_64", State: "blocked"}},
 		UpdatedAt:   time.Now().UTC(),
@@ -93,7 +91,6 @@ func TestPublishStateTask(t *testing.T) {
 	pkg := &model.Package{
 		Project: "isv:percona",
 		Name:    "mypkg",
-		Scope:   model.ScopeCommon,
 		Targets: []model.Target{
 			{Repo: "Ubuntu_24.04", Arch: "x86_64", State: "succeeded"},  // repo published → Published=true
 			{Repo: "Ubuntu_24.04", Arch: "aarch64", State: "succeeded"}, // repo building → Published=false
@@ -129,7 +126,6 @@ func TestBuildReasonTask(t *testing.T) {
 	pkg := &model.Package{
 		Project:     "isv:percona",
 		Name:        "mypkg",
-		Scope:       model.ScopeCommon,
 		RollupState: model.RollupBuilding,
 		Targets: []model.Target{
 			{Repo: "repo", Arch: "x86_64", State: "building"},
@@ -165,7 +161,6 @@ func TestPackageTypeTask(t *testing.T) {
 	pkg := &model.Package{
 		Project:     "isv:percona:ppg:17:containers",
 		Name:        "percona-distribution-postgresql",
-		Scope:       model.ScopeContainer,
 		RollupState: model.RollupSucceeded,
 		UpdatedAt:   time.Now().UTC(),
 	}
@@ -189,7 +184,6 @@ func TestPackageTypeTaskRPM(t *testing.T) {
 	pkg := &model.Package{
 		Project:     "isv:percona:ppg:17",
 		Name:        "percona-pg_tde",
-		Scope:       model.ScopeVersion,
 		RollupState: model.RollupSucceeded,
 		UpdatedAt:   time.Now().UTC(),
 	}
@@ -245,7 +239,6 @@ func TestVersionTask(t *testing.T) {
 	pkg := &model.Package{
 		Project:     "isv:percona:ppg:17",
 		Name:        "percona-pg_tde",
-		Scope:       model.ScopeVersion,
 		RollupState: model.RollupSucceeded,
 		IsContainer: boolPtr(false),
 		UpdatedAt:   time.Now().UTC(),
@@ -301,7 +294,6 @@ func TestContainerTagsTask(t *testing.T) {
 	pkg := &model.Package{
 		Project:     "isv:percona:ppg:17:containers",
 		Name:        "percona-distribution-postgresql",
-		Scope:       model.ScopeContainer,
 		RollupState: model.RollupSucceeded,
 		IsContainer: boolPtr(true),
 		Targets:     []model.Target{{Repo: "images", Arch: "x86_64", State: "succeeded"}},

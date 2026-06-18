@@ -2,8 +2,6 @@ package obs
 
 import (
 	"testing"
-
-	"github.com/percona/obs-dashboard/internal/model"
 )
 
 const root = "isv:percona"
@@ -52,25 +50,6 @@ func TestIsRealTime(t *testing.T) {
 	}
 	if KindUnknown.IsRealTime() {
 		t.Error("KindUnknown.IsRealTime() should be false")
-	}
-}
-
-func TestEventScope(t *testing.T) {
-	cases := []struct {
-		kind ProjectKind
-		want model.Scope
-	}{
-		{KindDev, model.ScopeVersion},
-		{KindPR, model.ScopePR},
-		{KindPPGCommon, model.ScopePPGCommon},
-		{KindCommon, model.ScopeCommon},
-		{KindRelease, model.ScopeRelease},
-		{KindUnknown, model.ScopeCommon},
-	}
-	for _, c := range cases {
-		if got := c.kind.EventScope(); got != c.want {
-			t.Errorf("%v.EventScope() = %q, want %q", c.kind, got, c.want)
-		}
 	}
 }
 

@@ -16,7 +16,7 @@ func (t BuildStateTask) Run(ctx context.Context, client *Client, pkg *model.Pack
 	if err != nil {
 		return err
 	}
-	updated := buildPackage(pkg.Project, pkg.Name, pkg.Scope, results)
+	updated := buildPackage(pkg.Project, pkg.Name, pkg.Tags, results)
 	// Preserve existing per-target enrichment from prior task runs.
 	for i := range updated.Targets {
 		for _, old := range pkg.Targets {

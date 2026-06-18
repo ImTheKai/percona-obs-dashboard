@@ -87,10 +87,9 @@ func (p *Poller) tick(ctx context.Context) {
 			byPkg[r.Package] = append(byPkg[r.Package], r)
 		}
 
-		scope := InferScope(project) // kept for Package.Scope backward compat
+		tags := ProjectTags(p.root, project)
 		for pkgName, targets := range byPkg {
-			pkg := buildPackage(project, pkgName, scope, targets)
-			pkg.Tags = ProjectTags(p.root, project)
+			pkg := buildPackage(project, pkgName, tags, targets)
 			pkg.IsRelease = kind == KindRelease
 
 			key := project + "/" + pkgName
@@ -179,37 +178,6 @@ func (p *Poller) discoverProjects(ctx context.Context, root string) ([]string, e
 	return p.client.SearchProjects(ctx, root)
 }
 
-// InferScope classifies an OBS project name into a Scope tier.
-func InferScope(project string) model.Scope {
-	lower := strings.ToLower(project)
-	switch {
-	// PR projects: isv:percona:PR:pr-<number>[:<subproject>]
-	case strings.HasPrefix(lower, "isv:percona:pr:"):
-		return model.ScopePR
-	case strings.Contains(lower, "release"):
-		return model.ScopeRelease
-	case strings.Contains(lower, ":ppg:common"):
-		return model.ScopePPGCommon
-	case strings.Contains(lower, "ppgcommon"):
-		return model.ScopePPGCommon
-	// isv:percona:common:* subprojects (e.g. :deps:build, :containers:ubi9) are
-	// all common regardless of further path segments like "container".
-	case strings.HasPrefix(lower, "isv:percona:common:"):
-		return model.ScopeCommon
-	case strings.Contains(lower, "container"):
-		return model.ScopeContainer
-	case strings.Contains(lower, "common"):
-		return model.ScopeCommon
-	default:
-		// projects like isv:percona:ppg:17 have a version number segment
-		parts := strings.Split(project, ":")
-		if len(parts) >= 4 {
-			return model.ScopeVersion
-		}
-		return model.ScopeCommon
-	}
-}
-
 // PRNumber extracts the PR number from a PR project path.
 // Returns "" if the project is not a PR project.
 // Example: "isv:percona:PR:pr-42:ppg17" → "42"
@@ -236,7 +204,7 @@ func skipState(state string) bool {
 
 // buildPackage aggregates target states into a Package with worst-case rollup.
 // Targets with state disabled/excluded/locked are silently dropped.
-func buildPackage(project, name string, scope model.Scope, targets []PackageBuildState) *model.Package {
+func buildPackage(project, name string, tags []string, targets []PackageBuildState) *model.Package {
 	// Precedence from worst to best. finished/scheduled are transient in-progress
 	// states and must appear before succeeded so they are not silently ignored.
 	stateOrder := []model.RollupState{
@@ -274,7 +242,7 @@ func buildPackage(project, name string, scope model.Scope, targets []PackageBuil
 	return &model.Package{
 		Project:      project,
 		Name:         name,
-		Scope:        scope,
+		Tags:         tags,
 		RollupState:  rollup,
 		OKTargets:    ok,
 		TotalTargets: len(active),
@@ -301,7 +269,7 @@ func stateChangeEvent(pkg *model.Package, prev *model.Package) *model.Event {
 	return &model.Event{
 		ID:      "evt_" + ulid.Make().String(),
 		Type:    evtType,
-		Scope:   pkg.Scope,
+		Tags:    pkg.Tags,
 		Project: pkg.Project,
 		Package: pkg.Name,
 		What:    what,
