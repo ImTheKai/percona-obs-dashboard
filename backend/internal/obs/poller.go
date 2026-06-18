@@ -133,6 +133,20 @@ func (p *Poller) tick(ctx context.Context) {
 				}
 			}
 		}
+
+		// Garbage-collect packages removed from this project in OBS.
+		for _, stored := range existing {
+			if stored.Project != project {
+				continue
+			}
+			if _, live := byPkg[stored.Name]; !live {
+				slog.Info("poller: removing stale package", "project", project, "pkg", stored.Name)
+				if err := store.DeletePackage(p.db, project, stored.Name); err != nil {
+					slog.Error("poller: delete stale package", "project", project, "pkg", stored.Name, "err", err)
+				}
+				p.ws.Remove(project + "/" + stored.Name)
+			}
+		}
 	}
 
 	// Garbage-collect packages for projects no longer in OBS.
