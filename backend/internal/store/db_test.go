@@ -1,8 +1,11 @@
 package store
 
 import (
+	"database/sql"
 	"path/filepath"
 	"testing"
+
+	_ "modernc.org/sqlite"
 )
 
 func TestOpen(t *testing.T) {
@@ -30,6 +33,18 @@ func TestOpen(t *testing.T) {
 	).Scan(&idx); err != nil {
 		t.Errorf("events_at index not found: %v", err)
 	}
+
+	// packages must not have a scope column
+	if columnExists(db, "packages", "scope") {
+		t.Error("packages.scope should not exist on fresh DB")
+	}
+	// events must have tags, not scope
+	if !columnExists(db, "events", "tags") {
+		t.Error("events.tags missing on fresh DB")
+	}
+	if columnExists(db, "events", "scope") {
+		t.Error("events.scope should not exist on fresh DB")
+	}
 }
 
 func TestOpenIdempotent(t *testing.T) {
@@ -50,32 +65,60 @@ func TestOpenMigrationAppliesTagsAndIsRelease(t *testing.T) {
 	dir := t.TempDir()
 	path := filepath.Join(dir, "test.db")
 
-	// Open fresh DB (gets full schema including new columns).
+	// Simulate a legacy DB: create the old schema (with scope) directly,
+	// insert a row, then run Open() to trigger the migration.
+	{
+		legacyDB, err := sql.Open("sqlite", path)
+		if err != nil {
+			t.Fatalf("raw open: %v", err)
+		}
+		_, err = legacyDB.Exec(`
+			CREATE TABLE IF NOT EXISTS packages (
+				project          TEXT NOT NULL,
+				name             TEXT NOT NULL,
+				scope            TEXT NOT NULL,
+				rollup_state     TEXT NOT NULL,
+				ok_targets       INTEGER NOT NULL DEFAULT 0,
+				total_targets    INTEGER NOT NULL DEFAULT 0,
+				trigger_what     TEXT,
+				trigger_kind     TEXT,
+				trigger_at       DATETIME,
+				targets_json     TEXT NOT NULL DEFAULT '[]',
+				updated_at       DATETIME NOT NULL,
+				state_changed_at DATETIME,
+				is_container     INTEGER NOT NULL DEFAULT 0,
+				version          TEXT NOT NULL DEFAULT '',
+				container_tags   TEXT NOT NULL DEFAULT '[]',
+				tags             TEXT NOT NULL DEFAULT '[]',
+				is_release       INTEGER NOT NULL DEFAULT 0,
+				PRIMARY KEY (project, name)
+			)
+		`)
+		if err != nil {
+			legacyDB.Close()
+			t.Fatalf("create legacy table: %v", err)
+		}
+		_, err = legacyDB.Exec(`
+			INSERT INTO packages (project, name, scope, rollup_state, ok_targets, total_targets, targets_json, updated_at)
+			VALUES ('isv:percona:ppg:releases:17', 'pg_tde', 'release', 'succeeded', 1, 1, '[]', datetime('now'))
+		`)
+		if err != nil {
+			legacyDB.Close()
+			t.Fatalf("insert legacy row: %v", err)
+		}
+		legacyDB.Close()
+	}
+
+	// Open via our Open() function: migrations should backfill tags and is_release.
 	db, err := Open(path)
 	if err != nil {
 		t.Fatalf("Open: %v", err)
 	}
-
-	// Insert a row using the old-style scope='release' (simulating legacy data with default tags).
-	_, err = db.Exec(`
-		INSERT INTO packages (project, name, scope, rollup_state, ok_targets, total_targets, targets_json, updated_at)
-		VALUES ('isv:percona:ppg:releases:17', 'pg_tde', 'release', 'succeeded', 1, 1, '[]', datetime('now'))
-	`)
-	if err != nil {
-		t.Fatalf("insert: %v", err)
-	}
-	db.Close()
-
-	// Re-open: migrations should backfill tags and is_release.
-	db2, err := Open(path)
-	if err != nil {
-		t.Fatalf("re-open: %v", err)
-	}
-	defer db2.Close()
+	defer db.Close()
 
 	var tags string
 	var isRelease int
-	if err := db2.QueryRow(`SELECT tags, is_release FROM packages WHERE project='isv:percona:ppg:releases:17' AND name='pg_tde'`).
+	if err := db.QueryRow(`SELECT tags, is_release FROM packages WHERE project='isv:percona:ppg:releases:17' AND name='pg_tde'`).
 		Scan(&tags, &isRelease); err != nil {
 		t.Fatalf("scan: %v", err)
 	}

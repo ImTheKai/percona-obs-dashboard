@@ -12,7 +12,6 @@ const schema = `
 CREATE TABLE IF NOT EXISTS packages (
     project        TEXT NOT NULL,
     name           TEXT NOT NULL,
-    scope          TEXT NOT NULL,
     rollup_state   TEXT NOT NULL,
     ok_targets     INTEGER NOT NULL DEFAULT 0,
     total_targets  INTEGER NOT NULL DEFAULT 0,
@@ -33,7 +32,7 @@ CREATE TABLE IF NOT EXISTS packages (
 CREATE TABLE IF NOT EXISTS events (
     id       TEXT PRIMARY KEY,
     type     TEXT NOT NULL,
-    scope    TEXT NOT NULL,
+    tags     TEXT NOT NULL DEFAULT '[]',
     project  TEXT NOT NULL,
     package  TEXT NOT NULL,
     repo     TEXT,
@@ -64,6 +63,13 @@ CREATE TABLE IF NOT EXISTS target_state_durations (
 CREATE INDEX IF NOT EXISTS idx_tsd_pkg ON target_state_durations (project, package);
 `
 
+// columnExists reports whether table has a column named col.
+func columnExists(db *sql.DB, table, col string) bool {
+	var n int
+	db.QueryRow(`SELECT COUNT(*) FROM pragma_table_info(?) WHERE name = ?`, table, col).Scan(&n)
+	return n > 0
+}
+
 // Open opens (or creates) the SQLite database at path and applies the schema.
 func Open(path string) (*sql.DB, error) {
 	db, err := sql.Open("sqlite", path+"?_journal_mode=WAL&_foreign_keys=on&_busy_timeout=5000")
@@ -84,6 +90,15 @@ func Open(path string) (*sql.DB, error) {
 	db.Exec(`ALTER TABLE packages ADD COLUMN container_tags TEXT NOT NULL DEFAULT '[]'`)
 	db.Exec(`ALTER TABLE packages ADD COLUMN tags TEXT NOT NULL DEFAULT '[]'`)
 	db.Exec(`ALTER TABLE packages ADD COLUMN is_release INTEGER NOT NULL DEFAULT 0`)
+	db.Exec(`ALTER TABLE events ADD COLUMN tags TEXT NOT NULL DEFAULT '[]'`)
+
+	// Data migration: backfill packages.tags and is_release from scope.
+	// Must run BEFORE migrateIsContainerNullable because that rebuilds the table
+	// (DROP + RENAME), so scope would disappear before we can read it.
+	if err := migrateTagsAndIsRelease(db); err != nil {
+		db.Close()
+		return nil, fmt.Errorf("migrate tags and is_release: %w", err)
+	}
 
 	// Structural migration: make is_container nullable.
 	// SQLite does not support ALTER COLUMN, so we recreate the table when the
@@ -98,11 +113,17 @@ func Open(path string) (*sql.DB, error) {
 		}
 	}
 
-	// Data migrations: backfill derived columns.
-	if err := migrateTagsAndIsRelease(db); err != nil {
+	// Data migration: backfill events.tags from scope.
+	// Runs after migrateIsContainerNullable (events table is unaffected by that migration).
+	if err := migrateEventTags(db); err != nil {
 		db.Close()
-		return nil, fmt.Errorf("migrate tags and is_release: %w", err)
+		return nil, fmt.Errorf("migrate event tags: %w", err)
 	}
+
+	// Drop legacy scope columns now that data has been migrated.
+	db.Exec(`ALTER TABLE packages DROP COLUMN scope`)
+	db.Exec(`ALTER TABLE events DROP COLUMN scope`)
+
 	if err := migrateSucceededToPublished(db); err != nil {
 		db.Close()
 		return nil, fmt.Errorf("migrate succeeded to published: %w", err)
@@ -127,7 +148,6 @@ func migrateIsContainerNullable(db *sql.DB) error {
 		`CREATE TABLE packages_new (
 			project          TEXT NOT NULL,
 			name             TEXT NOT NULL,
-			scope            TEXT NOT NULL,
 			rollup_state     TEXT NOT NULL,
 			ok_targets       INTEGER NOT NULL DEFAULT 0,
 			total_targets    INTEGER NOT NULL DEFAULT 0,
@@ -145,7 +165,7 @@ func migrateIsContainerNullable(db *sql.DB) error {
 			PRIMARY KEY (project, name)
 		)`,
 		`INSERT INTO packages_new
-			SELECT project, name, scope, rollup_state, ok_targets, total_targets,
+			SELECT project, name, rollup_state, ok_targets, total_targets,
 			       trigger_what, trigger_kind, trigger_at, targets_json, updated_at,
 			       state_changed_at,
 			       CASE WHEN is_container = 1 THEN 1 ELSE NULL END,
@@ -169,6 +189,9 @@ func migrateIsContainerNullable(db *sql.DB) error {
 // migrateTagsAndIsRelease backfills tags JSON and is_release from the scope column.
 // Idempotent: only updates rows where tags is still the default '[]'.
 func migrateTagsAndIsRelease(db *sql.DB) error {
+	if !columnExists(db, "packages", "scope") {
+		return nil
+	}
 	_, err := db.Exec(`
 		UPDATE packages SET tags = CASE
 			WHEN scope = 'version'                               THEN '["ppg"]'
@@ -186,6 +209,28 @@ func migrateTagsAndIsRelease(db *sql.DB) error {
 		return err
 	}
 	_, err = db.Exec(`UPDATE packages SET is_release = 1 WHERE scope = 'release' AND is_release = 0`)
+	return err
+}
+
+// migrateEventTags backfills events.tags from the legacy events.scope column.
+// Idempotent: only updates rows where tags is still the default '[]'.
+func migrateEventTags(db *sql.DB) error {
+	if !columnExists(db, "events", "scope") {
+		return nil
+	}
+	_, err := db.Exec(`
+		UPDATE events SET tags = CASE
+			WHEN scope = 'version'                              THEN '["ppg"]'
+			WHEN scope = 'pr'                                   THEN '["ppg","pr"]'
+			WHEN scope = 'ppgcommon'                            THEN '["ppg","common"]'
+			WHEN scope = 'common'                               THEN '["common"]'
+			WHEN scope = 'release'                              THEN '["ppg","release"]'
+			WHEN scope = 'container' AND project LIKE '%:PR:%' THEN '["ppg","pr"]'
+			WHEN scope = 'container'                            THEN '["ppg"]'
+			ELSE '[]'
+		END
+		WHERE tags = '[]'
+	`)
 	return err
 }
 
