@@ -17,7 +17,7 @@ export function useEvents(apiBase: MaybeRef<string>, version: MaybeRef<string>) 
       if (opts.from && opts.to) {
         qs = `?from=${encodeURIComponent(opts.from)}&to=${encodeURIComponent(opts.to)}`
       } else {
-        qs = `?window=${opts.window ?? 1440}`
+        qs = `?window=${opts.window ?? 60}`
       }
       const res = await fetch(`${base}/${v || 'all'}/events${qs}`)
       if (!res.ok) throw new Error(`HTTP ${res.status}`)
