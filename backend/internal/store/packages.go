@@ -170,6 +170,9 @@ func DeletePackagesByProject(db *sql.DB, project string) error {
 	if _, err := db.Exec(`DELETE FROM target_state_durations WHERE project = ?`, project); err != nil {
 		return err
 	}
+	if _, err := db.Exec(`DELETE FROM events WHERE project = ?`, project); err != nil {
+		return err
+	}
 	res, err := db.Exec(`DELETE FROM packages WHERE project = ?`, project)
 	if err != nil {
 		return err
@@ -184,6 +187,9 @@ func DeletePackagesByProject(db *sql.DB, project string) error {
 // Used by the MQ consumer on package.delete events.
 func DeletePackage(db *sql.DB, project, name string) error {
 	if _, err := db.Exec(`DELETE FROM target_state_durations WHERE project = ? AND package = ?`, project, name); err != nil {
+		return err
+	}
+	if _, err := db.Exec(`DELETE FROM events WHERE project = ? AND package = ?`, project, name); err != nil {
 		return err
 	}
 	res, err := db.Exec(`DELETE FROM packages WHERE project = ? AND name = ?`, project, name)
