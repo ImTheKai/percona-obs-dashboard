@@ -95,6 +95,15 @@ func (p *Poller) tick(ctx context.Context) {
 			key := project + "/" + pkgName
 			prev := byKey[key]
 
+			// Preserve published state: OBS build results only return "succeeded",
+			// never "published". Without this guard the poller would flip a published
+			// package back to succeeded every tick, causing a succeeded↔published
+			// oscillation and a flood of stateChangeEvents.
+			if prev != nil && prev.RollupState == model.RollupPublished &&
+				pkg.RollupState == model.RollupSucceeded && !targetsChanged(prev, pkg) {
+				pkg.RollupState = model.RollupPublished
+			}
+
 			rollupChanged := prev == nil || prev.RollupState != pkg.RollupState
 			tagsChanged := prev != nil && len(prev.Tags) != len(pkg.Tags)
 
