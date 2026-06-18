@@ -114,7 +114,7 @@ Set by the poller at upsert time: `1` for `KindRelease` projects, `0` for all ot
 | `KindRelease` | `"release"` (moot — release packages produce no events) |
 | `KindUnknown` | `"common"` (fallback) |
 
-A convenience method `ProjectKind.EventScope() string` on the classifier type covers this so event writers do not re-implement the mapping.
+A convenience method `ProjectKind.EventScope() model.Scope` on the classifier type covers this so event writers do not re-implement the mapping and cannot produce invalid scope strings.
 
 ### Add `published` to `RollupState`
 
@@ -222,14 +222,12 @@ This condition is now unified — it correctly seeds both real-time packages (no
 
 `"isv:percona:"` replaced with `cfg.OBSRoot + ":"`.
 
-The MQ consumer is the third real-time output path that must be silenced for release packages. After the root-filter passes, the consumer calls `Classify(root, project)` on the incoming message's project. If the result is `KindRelease`:
+The MQ consumer is the third real-time output path that must be silenced for release packages. The poller is the **sole owner** of release package sync — MQ must not mutate release package state, since it only receives partial/stub target data with no worker follow-up.
 
-- `store.UpsertPackageState` may still be called (DB sync is fine).
-- `hub.Notify` is **skipped**.
-- `store.AppendEvent` is **skipped** — no create/delete/build/published events are appended for release packages.
-- `ws.Signal` is **skipped** — release packages enter the working set only via the poller; MQ must not re-signal them.
+After the root-filter passes, the consumer calls `Classify(root, project)` on the incoming message's project. If the result is `KindRelease`, the message is handled as follows:
 
-This applies to all MQ routing keys: `package.build_success`, `package.build_fail`, `repo.published`, `project.create`, `project.delete`, `package.create`, `package.delete`.
+- **`project.delete` / `package.delete`**: call `store.DeletePackagesByProject` or `store.DeletePackage` as normal — lifecycle cleanup applies regardless of owner. No `hub.Notify`, no `AppendEvent`.
+- **All other routing keys** (`package.build_success`, `package.build_fail`, `repo.published`, `project.create`, `package.create`): **ignored entirely** — no DB write, no broadcast, no event, no working-set signal. The poller will pick up any structural changes on its next tick.
 
 ### `container` tag write-back
 
