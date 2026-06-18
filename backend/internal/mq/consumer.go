@@ -176,7 +176,6 @@ func (c *Consumer) handle(ctx context.Context, msg amqp.Delivery) {
 	}
 
 	kind := obs.Classify(c.root, m.Project)
-	scope := kind.EventScope()
 
 	key := msg.RoutingKey
 	switch {
@@ -201,7 +200,7 @@ func (c *Consumer) handle(ctx context.Context, msg amqp.Delivery) {
 		c.appendEvent(&model.Event{
 			ID:      "evt_" + ulid.Make().String(),
 			Type:    model.EventCreated,
-			Scope:   scope,
+			Tags:    obs.ProjectTags(c.root, m.Project),
 			Project: m.Project,
 			What:    fmt.Sprintf("project %s created", m.Project),
 			Why:     m.Sender,
@@ -216,7 +215,7 @@ func (c *Consumer) handle(ctx context.Context, msg amqp.Delivery) {
 		c.appendEvent(&model.Event{
 			ID:      "evt_" + ulid.Make().String(),
 			Type:    model.EventDeleted,
-			Scope:   scope,
+			Tags:    obs.ProjectTags(c.root, m.Project),
 			Project: m.Project,
 			What:    fmt.Sprintf("project %s deleted", m.Project),
 			Why:     m.Comment,
@@ -231,7 +230,7 @@ func (c *Consumer) handle(ctx context.Context, msg amqp.Delivery) {
 		c.appendEvent(&model.Event{
 			ID:      "evt_" + ulid.Make().String(),
 			Type:    model.EventCreated,
-			Scope:   scope,
+			Tags:    obs.ProjectTags(c.root, m.Project),
 			Project: m.Project,
 			Package: m.Package,
 			What:    fmt.Sprintf("package %s created", m.Package),
@@ -242,7 +241,7 @@ func (c *Consumer) handle(ctx context.Context, msg amqp.Delivery) {
 		stub := &model.Package{
 			Project: m.Project,
 			Name:    m.Package,
-			Scope:   scope,
+			Tags:    obs.ProjectTags(c.root, m.Project),
 		}
 		c.ws.Signal(stub)
 
@@ -253,7 +252,7 @@ func (c *Consumer) handle(ctx context.Context, msg amqp.Delivery) {
 		c.appendEvent(&model.Event{
 			ID:      "evt_" + ulid.Make().String(),
 			Type:    model.EventDeleted,
-			Scope:   scope,
+			Tags:    obs.ProjectTags(c.root, m.Project),
 			Project: m.Project,
 			Package: m.Package,
 			What:    fmt.Sprintf("package %s deleted", m.Package),
@@ -270,7 +269,7 @@ func (c *Consumer) handle(ctx context.Context, msg amqp.Delivery) {
 			return
 		}
 		rollup := mqStateToRollup(key)
-		pkg := c.mergePackageTarget(m, scope, rollup)
+		pkg := c.mergePackageTarget(m, rollup)
 		if err := c.upsertPackage(pkg); err != nil {
 			slog.Error("mq: upsert package", "err", err)
 			return
@@ -284,7 +283,7 @@ func (c *Consumer) handle(ctx context.Context, msg amqp.Delivery) {
 // mergePackageTarget reads the existing package from the store (if any), updates
 // the (repo, arch) target with the new state, then recalculates OKTargets,
 // TotalTargets, and RollupState from the full merged target list.
-func (c *Consumer) mergePackageTarget(m mqMessage, scope model.Scope, newState model.RollupState) *model.Package {
+func (c *Consumer) mergePackageTarget(m mqMessage, newState model.RollupState) *model.Package {
 	targets := []model.Target{{Repo: m.Repo, Arch: m.Arch, State: string(newState)}}
 
 	existing, err := store.QueryPackages(c.db, m.Project)
@@ -334,7 +333,7 @@ func (c *Consumer) mergePackageTarget(m mqMessage, scope model.Scope, newState m
 	return &model.Package{
 		Project:      m.Project,
 		Name:         m.Package,
-		Scope:        scope,
+		Tags:         obs.ProjectTags(c.root, m.Project),
 		RollupState:  worst,
 		OKTargets:    okCount,
 		TotalTargets: len(targets),

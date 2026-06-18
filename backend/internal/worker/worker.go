@@ -133,7 +133,7 @@ func (p *Pool) emitBuildEvents(pkg *model.Package, oldTargets []model.Target) {
 			p.appendEvent(&model.Event{
 				ID:      "evt_" + ulid.Make().String(),
 				Type:    model.EventBuildStarted,
-				Scope:   pkg.Scope,
+				Tags:    pkg.Tags,
 				Project: pkg.Project,
 				Package: pkg.Name,
 				Repo:    t.Repo,
@@ -156,7 +156,7 @@ func (p *Pool) emitBuildEvents(pkg *model.Package, oldTargets []model.Target) {
 			p.appendEvent(&model.Event{
 				ID:      "evt_" + ulid.Make().String(),
 				Type:    model.EventFailed,
-				Scope:   pkg.Scope,
+				Tags:    pkg.Tags,
 				Project: pkg.Project,
 				Package: pkg.Name,
 				Repo:    t.Repo,
@@ -173,7 +173,7 @@ func (p *Pool) emitBuildEvents(pkg *model.Package, oldTargets []model.Target) {
 			p.appendEvent(&model.Event{
 				ID:      "evt_" + ulid.Make().String(),
 				Type:    model.EventSucceeded,
-				Scope:   pkg.Scope,
+				Tags:    pkg.Tags,
 				Project: pkg.Project,
 				Package: pkg.Name,
 				Repo:    t.Repo,
@@ -191,7 +191,7 @@ func (p *Pool) emitBuildEvents(pkg *model.Package, oldTargets []model.Target) {
 			p.appendEvent(&model.Event{
 				ID:      "evt_" + ulid.Make().String(),
 				Type:    model.EventPublished,
-				Scope:   pkg.Scope,
+				Tags:    pkg.Tags,
 				Project: pkg.Project,
 				Package: pkg.Name,
 				Repo:    t.Repo,

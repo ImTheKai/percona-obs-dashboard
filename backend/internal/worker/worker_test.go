@@ -71,7 +71,8 @@ func TestPoolRunsTasksForDispatchedPackage(t *testing.T) {
 	p.Start(ctx)
 
 	pkg := &model.Package{
-		Project: "isv:percona", Name: "pkg-a", Scope: model.ScopeCommon,
+		Project:     "isv:percona",
+		Name:        "pkg-a",
 		RollupState: model.RollupFailed, OKTargets: 0, TotalTargets: 1,
 		Targets:   []model.Target{{Repo: "repo", Arch: "x86_64", State: "failed"}},
 		UpdatedAt: time.Now().UTC(),
@@ -107,7 +108,8 @@ func TestPoolRemovesSucceededPackageFromWorkingSet(t *testing.T) {
 	// IsContainer must be non-nil and RollupPublished must be set for removal.
 	isContainer := false
 	pkg := &model.Package{
-		Project: "isv:percona", Name: "pkg-a", Scope: model.ScopeCommon,
+		Project:     "isv:percona",
+		Name:        "pkg-a",
 		RollupState: model.RollupFailed, OKTargets: 1, TotalTargets: 1,
 		IsContainer: &isContainer,
 		Targets:     []model.Target{{Repo: "repo", Arch: "x86_64", State: "succeeded", Published: true}},
@@ -148,7 +150,8 @@ func TestPoolDoesNotRemoveWhenUnpublished(t *testing.T) {
 	// Target is succeeded but NOT yet published — allTargetsPublished must
 	// return false so the removal is blocked.
 	pkg := &model.Package{
-		Project: "isv:percona", Name: "pkg-b", Scope: model.ScopeCommon,
+		Project:     "isv:percona",
+		Name:        "pkg-b",
 		RollupState: model.RollupFailed, OKTargets: 1, TotalTargets: 1,
 		Targets:   []model.Target{{Repo: "repo", Arch: "x86_64", State: "succeeded", Published: false}},
 		UpdatedAt: time.Now().UTC(),
@@ -184,7 +187,8 @@ func TestPoolContinuesAfterTaskError(t *testing.T) {
 	p.Start(ctx)
 
 	pkg := &model.Package{
-		Project: "isv:percona", Name: "pkg-a", Scope: model.ScopeCommon,
+		Project:     "isv:percona",
+		Name:        "pkg-a",
 		RollupState: model.RollupFailed, OKTargets: 0, TotalTargets: 1,
 		Targets:   []model.Target{{Repo: "repo", Arch: "x86_64", State: "failed"}},
 		UpdatedAt: time.Now().UTC(),
@@ -262,10 +266,11 @@ func TestProcessOnceEmitsBuildStarted(t *testing.T) {
 	ws := workingset.New(10)
 
 	pkg := &model.Package{
-		Project: "isv:percona:ppg:17", Name: "mypkg",
-		Scope: model.ScopeVersion, RollupState: model.RollupBuilding,
-		Targets:   []model.Target{{Repo: "Ubuntu_24.04", Arch: "x86_64", State: "building"}},
-		UpdatedAt: time.Now().UTC(),
+		Project:     "isv:percona:ppg:17",
+		Name:        "mypkg",
+		RollupState: model.RollupBuilding,
+		Targets:     []model.Target{{Repo: "Ubuntu_24.04", Arch: "x86_64", State: "building"}},
+		UpdatedAt:   time.Now().UTC(),
 	}
 	if err := store.UpsertPackageState(db, pkg, pkg.UpdatedAt); err != nil {
 		t.Fatalf("seed: %v", err)
@@ -302,10 +307,11 @@ func TestProcessOnceEmitsFailedStates(t *testing.T) {
 			ws := workingset.New(10)
 
 			pkg := &model.Package{
-				Project: "isv:percona:ppg:17", Name: "mypkg",
-				Scope: model.ScopeVersion, RollupState: model.RollupBuilding,
-				Targets:   []model.Target{{Repo: "Ubuntu_24.04", Arch: "x86_64", State: "building"}},
-				UpdatedAt: time.Now().UTC(),
+				Project:     "isv:percona:ppg:17",
+				Name:        "mypkg",
+				RollupState: model.RollupBuilding,
+				Targets:     []model.Target{{Repo: "Ubuntu_24.04", Arch: "x86_64", State: "building"}},
+				UpdatedAt:   time.Now().UTC(),
 			}
 			if err := store.UpsertPackageState(db, pkg, pkg.UpdatedAt); err != nil {
 				t.Fatalf("seed: %v", err)
@@ -337,10 +343,11 @@ func TestProcessOnceNoEventForBlocked(t *testing.T) {
 	ws := workingset.New(10)
 
 	pkg := &model.Package{
-		Project: "isv:percona:ppg:17", Name: "mypkg",
-		Scope: model.ScopeVersion, RollupState: model.RollupBuilding,
-		Targets:   []model.Target{{Repo: "Ubuntu_24.04", Arch: "x86_64", State: "building"}},
-		UpdatedAt: time.Now().UTC(),
+		Project:     "isv:percona:ppg:17",
+		Name:        "mypkg",
+		RollupState: model.RollupBuilding,
+		Targets:     []model.Target{{Repo: "Ubuntu_24.04", Arch: "x86_64", State: "building"}},
+		UpdatedAt:   time.Now().UTC(),
 	}
 	if err := store.UpsertPackageState(db, pkg, pkg.UpdatedAt); err != nil {
 		t.Fatalf("seed: %v", err)
@@ -364,10 +371,11 @@ func TestProcessOnceEmitsPublished(t *testing.T) {
 	ws := workingset.New(10)
 
 	pkg := &model.Package{
-		Project: "isv:percona:ppg:17", Name: "mypkg",
-		Scope: model.ScopeVersion, RollupState: model.RollupSucceeded,
-		Targets:   []model.Target{{Repo: "Ubuntu_24.04", Arch: "x86_64", State: "succeeded", Published: false}},
-		UpdatedAt: time.Now().UTC(),
+		Project:     "isv:percona:ppg:17",
+		Name:        "mypkg",
+		RollupState: model.RollupSucceeded,
+		Targets:     []model.Target{{Repo: "Ubuntu_24.04", Arch: "x86_64", State: "succeeded", Published: false}},
+		UpdatedAt:   time.Now().UTC(),
 	}
 	if err := store.UpsertPackageState(db, pkg, pkg.UpdatedAt); err != nil {
 		t.Fatalf("seed: %v", err)
@@ -409,7 +417,6 @@ func TestPoolRoutesDevVsReleaseTasks(t *testing.T) {
 	devPkg := &model.Package{
 		Project:     "isv:percona:ppg:17",
 		Name:        "pg_tde",
-		Scope:       model.ScopeVersion,
 		IsRelease:   false,
 		RollupState: model.RollupBuilding,
 		Targets:     []model.Target{{Repo: "RockyLinux_9", Arch: "x86_64", State: "building"}},
@@ -428,7 +435,6 @@ func TestPoolRoutesDevVsReleaseTasks(t *testing.T) {
 	relPkg := &model.Package{
 		Project:     "isv:percona:ppg:releases:17",
 		Name:        "pg_tde",
-		Scope:       model.ScopeRelease,
 		IsRelease:   true,
 		RollupState: model.RollupBuilding,
 		Targets:     []model.Target{{Repo: "RockyLinux_9", Arch: "x86_64", State: "building"}},
