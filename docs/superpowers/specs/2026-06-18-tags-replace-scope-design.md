@@ -23,19 +23,52 @@ Go 1.25, SQLite/modernc, Vue 3 + TypeScript, chi router.
 
 ---
 
-## Section 1 — DB Migration
+## Section 1 — DB Migration (`internal/store/db.go`)
 
-New migration file (next sequence number after existing migrations):
+This repo uses inline startup migrations in `db.go`, not an external migration-file runner. All changes go into `Open()` alongside the existing `ALTER TABLE` and structural-migration calls. Do NOT create a separate migration file — it will never be executed.
 
-```sql
-ALTER TABLE packages DROP COLUMN scope;
-ALTER TABLE events   ADD COLUMN tags TEXT NOT NULL DEFAULT '[]';
-ALTER TABLE events   DROP COLUMN scope;
+**Fresh-schema changes (the `schema` const):**
+- `CREATE TABLE packages`: remove the `scope TEXT NOT NULL` column.
+- `CREATE TABLE events`: replace `scope TEXT NOT NULL` with `tags TEXT NOT NULL DEFAULT '[]'`.
+- `migrateIsContainerNullable` internal rebuild: remove `scope` from its `CREATE TABLE packages_new` statement and its `INSERT INTO packages_new SELECT …` column list.
+
+**Additive migrations (new `db.Exec` calls appended after existing ones):**
+```go
+db.Exec(`ALTER TABLE packages DROP COLUMN scope`)
+db.Exec(`ALTER TABLE events ADD COLUMN tags TEXT NOT NULL DEFAULT '[]'`)
+db.Exec(`ALTER TABLE events DROP COLUMN scope`)
+```
+Each call is idempotent: `ADD COLUMN` fails silently if the column already exists; `DROP COLUMN` fails silently if the column is already gone.
+
+**Data migration — backfill events.tags from scope (new function `migrateEventTags`):**
+Run this BEFORE `DROP COLUMN scope` takes effect (i.e., call it before or immediately after the `ADD COLUMN tags` line, while scope still exists):
+```go
+if err := migrateEventTags(db); err != nil {
+    db.Close()
+    return nil, fmt.Errorf("migrate event tags: %w", err)
+}
 ```
 
-The `scope` column is dropped from `packages` (no longer written or read). `tags` is added to `events`; the `scope` column is then dropped from `events` too.
+```go
+func migrateEventTags(db *sql.DB) error {
+    _, err := db.Exec(`
+        UPDATE events SET tags = CASE
+            WHEN scope = 'version'                              THEN '["ppg"]'
+            WHEN scope = 'pr'                                   THEN '["ppg","pr"]'
+            WHEN scope = 'ppgcommon'                            THEN '["ppg","common"]'
+            WHEN scope = 'common'                               THEN '["common"]'
+            WHEN scope = 'release'                              THEN '["ppg","release"]'
+            WHEN scope = 'container' AND project LIKE '%:PR:%' THEN '["ppg","pr"]'
+            WHEN scope = 'container'                            THEN '["ppg"]'
+            ELSE '[]'
+        END
+        WHERE tags = '[]'
+    `)
+    return err
+}
+```
 
-**Fresh-schema update (`internal/store/db.go`):** The `CREATE TABLE packages` statement must have its `scope TEXT NOT NULL DEFAULT 'common'` column removed. The `CREATE TABLE events` statement must have `scope TEXT NOT NULL DEFAULT 'common'` replaced with `tags TEXT NOT NULL DEFAULT '[]'`. This ensures newly-created databases are schema-consistent with migrated ones.
+This mirrors the existing `migrateTagsAndIsRelease` scope→tags mapping for packages and is idempotent (only updates rows still at the default `'[]'`).
 
 ## Section 2 — Backend Model (`internal/model/types.go`)
 
@@ -73,8 +106,9 @@ func QueryBuildPackages(db *sql.DB, root, product, version string) ([]*model.Pac
         pp := root + ":" + product
         rows, err = db.Query(`SELECT`+packageSelectCols+`
             FROM packages
-            WHERE ((project = ? OR project LIKE ? || ':%') AND is_release = 0)
-               OR  (project = ? OR project LIKE ? || ':%')
+            WHERE is_release = 0
+              AND (  (project = ? OR project LIKE ? || ':%')
+                  OR (project = ? OR project LIKE ? || ':%') )
             ORDER BY project, name`,
             pp, pp, gp, gp,
         )
@@ -82,9 +116,10 @@ func QueryBuildPackages(db *sql.DB, root, product, version string) ([]*model.Pac
         vp := root + ":" + product + ":" + version
         rows, err = db.Query(`SELECT`+packageSelectCols+`
             FROM packages
-            WHERE ((project = ? OR project LIKE ? || ':%') AND is_release = 0)
-               OR  (project = ? OR project LIKE ? || ':%')
-               OR  (project = ? OR project LIKE ? || ':%')
+            WHERE is_release = 0
+              AND (  (project = ? OR project LIKE ? || ':%')
+                  OR (project = ? OR project LIKE ? || ':%')
+                  OR (project = ? OR project LIKE ? || ':%') )
             ORDER BY project, name`,
             vp, vp, cp, cp, gp, gp,
         )
@@ -93,7 +128,7 @@ func QueryBuildPackages(db *sql.DB, root, product, version string) ([]*model.Pac
 }
 ```
 
-The `"_"` branch queries the whole product subtree (`is_release = 0` excludes releases) plus global common. PPG common is included under the product prefix, so no third arm is needed. The specific-version branch is unchanged.
+`is_release = 0` is at the top level so it applies to every project-prefix arm, including ppg:common and global common. The `"_"` branch queries the whole product subtree (which includes ppgcommon) plus global common; no third arm needed there.
 
 ## Section 4 — Backend Store (`internal/store/events.go`)
 
