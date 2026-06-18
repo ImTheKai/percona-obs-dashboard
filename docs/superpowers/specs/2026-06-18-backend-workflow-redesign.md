@@ -101,6 +101,21 @@ Set by the poller at upsert time: `1` for `KindRelease` projects, `0` for all ot
 
 **Migration:** Set `is_release = 1` for all existing rows where `scope = 'release'` (before the scope→tags migration runs).
 
+### `ProjectKind` → `Event.Scope` mapping
+
+`Package.Scope` is removed, but `Event.Scope` stays (legacy, unchanged). Code that appends events (poller, MQ consumer, worker) currently derives scope from the project path ad-hoc. Going forward, event writers call `Classify(root, project)` and map the result:
+
+| ProjectKind | Event.Scope |
+|-------------|-------------|
+| `KindDev` | `"version"` |
+| `KindPR` | `"pr"` |
+| `KindPPGCommon` | `"ppgcommon"` |
+| `KindCommon` | `"common"` |
+| `KindRelease` | `"release"` (moot — release packages produce no events) |
+| `KindUnknown` | `"common"` (fallback) |
+
+A convenience method `ProjectKind.EventScope() string` on the classifier type covers this so event writers do not re-implement the mapping.
+
 ### Add `published` to `RollupState`
 
 `published` is added to the `RollupState` enum in `model/types.go`. It is the single terminal state for all package types:
@@ -203,9 +218,18 @@ This condition is now unified — it correctly seeds both real-time packages (no
 
 ## Section 4: Working Set & Worker Changes
 
-### MQ consumer filter
+### MQ consumer filter and release suppression
 
 `"isv:percona:"` replaced with `cfg.OBSRoot + ":"`.
+
+The MQ consumer is the third real-time output path that must be silenced for release packages. After the root-filter passes, the consumer calls `Classify(root, project)` on the incoming message's project. If the result is `KindRelease`:
+
+- `store.UpsertPackageState` may still be called (DB sync is fine).
+- `hub.Notify` is **skipped**.
+- `store.AppendEvent` is **skipped** — no create/delete/build/published events are appended for release packages.
+- `ws.Signal` is **skipped** — release packages enter the working set only via the poller; MQ must not re-signal them.
+
+This applies to all MQ routing keys: `package.build_success`, `package.build_fail`, `repo.published`, `project.create`, `project.delete`, `package.create`, `package.delete`.
 
 ### `container` tag write-back
 
@@ -321,6 +345,6 @@ Release packages go through the detection pipeline (type check, publish-state ch
 | Model | Add `published` to `RollupState` enum; replace `Package.Scope` with `Tags []string` and `IsRelease bool`; `Event.Scope` and `events.scope` column are **unchanged** (events keep legacy scope) |
 | Store | `GetActivePackages`: `rollup_state != 'published' OR is_container IS NULL`; `UpsertPackageState` records state transitions inline; split `QueryPackages` into `QueryBuildPackages(root, product, version)` + `QueryReleasePackages`; both `DeletePackagesByProject` and `DeletePackage` delete from `target_state_durations` |
 | Poller | Immediate startup trigger; single configurable root; real-time vs. release discovery split; sets `is_release` on upsert; adds release packages to working set when detection incomplete |
-| Worker | `container` tag write-back on `is_container=1`; split task pipeline (real-time vs. release); `PublishStateTask` promotes to `published`; new `BinariesCheckTask`; suppress `hub.Notify` for release packages |
-| MQ | Filter uses `cfg.OBSRoot` |
+| Worker | `container` tag write-back on `is_container=1`; split task pipeline (real-time vs. release); `PublishStateTask` promotes to `published`; new `BinariesCheckTask`; suppress `hub.Notify` and skip `emitBuildEvents` for release packages |
+| MQ | Filter uses `cfg.OBSRoot`; `Classify(root, project) == KindRelease` suppresses `hub.Notify`, `AppendEvent`, and `ws.Signal` for all release message types |
 | Handlers | Releases served from DB via `QueryReleasePackages`; `packagesHandler` uses `QueryBuildPackages(root, product, version)` (union of dev + product-common + common); `api.NewRouter` and `mq.NewConsumer` receive `cfg.OBSRoot` explicitly; worker suppresses SSE for release packages |
