@@ -4,7 +4,7 @@ import type { Context } from '../types/api'
 defineProps<{
   version: string
   updatedAt: string | null
-  activeScopes: string[]
+  activeTags: string[]
   contexts: Context[]
   selectedContext: Context
   availableVersions: string[]
@@ -12,15 +12,13 @@ defineProps<{
 
 const emit = defineEmits<{
   'update:version': [version: string]
-  'toggle-scope': [scope: string]
+  'toggle-tag': [tag: string]
   'update:context': [ctx: Context]
 }>()
 
-const SCOPES = [
-  { id: 'all', label: 'All' },
+const TAGS = [
+  { id: 'ppg', label: 'PPG' },
   { id: 'common', label: 'Common' },
-  { id: 'ppgcommon', label: 'PPG Common' },
-  { id: 'version', label: 'PPG' },
   { id: 'container', label: 'Container' },
 ]
 
@@ -40,7 +38,7 @@ function tabStyle(v: string, selected: string): string {
     : 'background: transparent; color: var(--text-muted); font-weight: 500; padding: 4px 12px; border-radius: 7px; border: none; font-size: 13px; cursor: pointer; font-family: inherit;'
 }
 
-function scopeStyle(_id: string, active: boolean): string {
+function tagStyle(_id: string, active: boolean): string {
   return active
     ? 'background: var(--brand-purple-tint); color: var(--brand-purple); padding: 3px 10px; border-radius: 8px; border: 2px solid var(--brand-purple); font-size: 11.5px; font-weight: 600; cursor: pointer; font-family: inherit;'
     : 'background: transparent; color: var(--text-secondary); padding: 4px 11px; border-radius: 8px; border: 1px solid var(--border); font-size: 11.5px; font-weight: 500; cursor: pointer; font-family: inherit;'
@@ -91,15 +89,15 @@ function scopeStyle(_id: string, active: boolean): string {
       </div>
     </div>
 
-    <!-- Scope chips -->
+    <!-- Tag pills -->
     <div style="display: flex; align-items: center; gap: 9px; flex-wrap: wrap; border-top: 1px solid var(--border); padding-top: 12px;">
-      <span style="font-size: 11px; color: var(--text-muted); font-weight: 600; text-transform: uppercase; letter-spacing: 0.06em; margin-right: 2px;">Scope</span>
+      <span style="font-size: 11px; color: var(--text-muted); font-weight: 600; text-transform: uppercase; letter-spacing: 0.06em; margin-right: 2px;">Tags</span>
       <button
-        v-for="s in SCOPES"
-        :key="s.id"
-        @click="s.id === 'all' ? emit('toggle-scope', 'all') : emit('toggle-scope', s.id)"
-        :style="scopeStyle(s.id, s.id === 'all' ? activeScopes.length === 0 : activeScopes.includes(s.id))"
-      >{{ s.label }}</button>
+        v-for="t in TAGS"
+        :key="t.id"
+        @click="emit('toggle-tag', t.id)"
+        :style="tagStyle(t.id, activeTags.includes(t.id))"
+      >{{ t.label }}</button>
     </div>
   </div>
 </template>

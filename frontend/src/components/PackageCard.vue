@@ -10,6 +10,7 @@ const IN_PROGRESS_STATES = new Set(['scheduled', 'building', 'finished'])
 
 const STATE_COLOR: Record<string, string> = {
   succeeded: 'var(--ok)',
+  published: 'var(--ok)',
   failed: 'var(--fail)',
   unresolvable: 'var(--brand-purple)',
   broken: 'var(--broken)',
@@ -21,6 +22,7 @@ const STATE_COLOR: Record<string, string> = {
 
 const STATE_BG: Record<string, string> = {
   succeeded: 'var(--ok-tint)',
+  published: 'var(--ok-tint)',
   failed: 'var(--fail-tint)',
   unresolvable: 'var(--brand-purple-tint)',
   broken: 'var(--broken-tint)',
@@ -31,7 +33,7 @@ const STATE_BG: Record<string, string> = {
 }
 
 const STATE_LABEL: Record<string, string> = {
-  succeeded: 'Succeeded', failed: 'Failed', unresolvable: 'Unresolvable',
+  succeeded: 'Succeeded', published: 'Published', failed: 'Failed', unresolvable: 'Unresolvable',
   broken: 'Broken', blocked: 'Blocked', building: 'Building',
   finished: 'Finishing', scheduled: 'Scheduled',
 }

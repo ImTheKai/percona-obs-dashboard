@@ -35,24 +35,20 @@ const prefixDepth = computed(() => selectedContext.value.prefix.split(':').lengt
 
 // Navigation state
 const version = ref('')
-const activeScopes = ref<string[]>([])
+const activeTags = ref<string[]>([])
 
-function toggleScope(scope: string) {
-  if (scope === 'all') {
-    activeScopes.value = []
-    return
-  }
-  const idx = activeScopes.value.indexOf(scope)
+function toggleTag(tag: string) {
+  const idx = activeTags.value.indexOf(tag)
   if (idx >= 0) {
-    activeScopes.value = activeScopes.value.filter(s => s !== scope)
+    activeTags.value = activeTags.value.filter(s => s !== tag)
   } else {
-    activeScopes.value = [...activeScopes.value, scope]
+    activeTags.value = [...activeTags.value, tag]
   }
 }
 
 function selectContext(ctx: Context) {
   selectedContext.value = ctx
-  activeScopes.value = []
+  activeTags.value = []
   // Fetch immediately so packages update before availableVersions watcher fires.
   // The version watcher may fire a second request if version resets, but the
   // server ignores the version URL param so both return the same data.
@@ -111,8 +107,8 @@ const contexts = computed<Context[]>(() => {
   return [DEFAULT_CONTEXT, ...prContexts]
 })
 
-const filteredPackages = computed(() => filterByTags(activeScopes.value))
-const filteredEvents = computed(() => filterEvents(activeScopes.value, version.value, prefixDepth.value, selectedContext.value.prefix))
+const filteredPackages = computed(() => filterByTags(activeTags.value))
+const filteredEvents = computed(() => filterEvents(activeTags.value, version.value, prefixDepth.value, selectedContext.value.prefix))
 const updatedAt = ref<string | null>(null)
 
 async function refresh() {
@@ -151,12 +147,12 @@ watch([windowMin, customFrom, customTo], () => refresh())
         <ContextBar
           :version="version"
           :updated-at="updatedAt"
-          :active-scopes="activeScopes"
+          :active-tags="activeTags"
           :contexts="contexts"
           :selected-context="selectedContext"
           :available-versions="availableVersions"
           @update:version="version = $event"
-          @toggle-scope="toggleScope"
+          @toggle-tag="toggleTag"
           @update:context="selectContext"
         />
         <HealthHeader :packages="allPackages" />

@@ -6,8 +6,8 @@ import type { Package } from '../types/api'
 
 const props = defineProps<{ packages: Package[] }>()
 
-const failingPackages = computed(() => props.packages.filter(p => p.rollup_state !== 'succeeded'))
-const okPackages = computed(() => props.packages.filter(p => p.rollup_state === 'succeeded'))
+const failingPackages = computed(() => props.packages.filter(p => p.rollup_state !== 'succeeded' && p.rollup_state !== 'published'))
+const okPackages = computed(() => props.packages.filter(p => p.rollup_state === 'succeeded' || p.rollup_state === 'published'))
 const attentionCount = computed(() => failingPackages.value.length)
 </script>
 

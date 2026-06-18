@@ -5,7 +5,7 @@ import type { Package } from '../types/api'
 const props = defineProps<{ packages: Package[] }>()
 
 const total = computed(() => props.packages.length)
-const okCount = computed(() => props.packages.filter(p => p.rollup_state === 'succeeded').length)
+const okCount = computed(() => props.packages.filter(p => p.rollup_state === 'succeeded' || p.rollup_state === 'published').length)
 const okTargets = computed(() => props.packages.reduce((s, p) => s + p.ok_targets, 0))
 const totalTargets = computed(() => props.packages.reduce((s, p) => s + p.total_targets, 0))
 const failCount = computed(() => props.packages.filter(p => p.rollup_state === 'failed').length)
