@@ -183,8 +183,8 @@ Within each `tick()`, the classifier drives two code paths:
 
 **Release projects** (`kind.IsRealTime() == false`):
 1. Call `BuildResults` — the OBS `_result` API works for release projects and returns package names with per-target `<status code="succeeded">`. This gives the full package+target list in one call; no directory traversal is needed. Note: `BuildResults` captures only the package-level status, not the result-level `state="published"` wrapper — rollup state for release packages is therefore **not** derived from `BuildResults`; that is `BinariesCheckTask`'s responsibility.
-2. Upsert packages to DB with `is_release = 1`, project-level tags, and targets populated from `BuildResults`. A newly discovered release package with no prior DB row starts with `rollup_state = 'building'`; an already-known package retains its existing rollup state unchanged.
-3. Call `ws.Add(pkg)` for packages where `rollup_state != 'published' OR is_container IS NULL` — these need detection work (type check + binaries check). Newly inserted release packages always qualify since they start with `rollup_state = 'building'` and `is_container = NULL`.
+2. Upsert packages to DB with `is_release = 1`, project-level tags, and targets populated from `BuildResults`. A newly discovered release package with no prior DB row starts with `rollup_state = 'building'`. An already-known package that has a **changed target set** (new or removed repo/arch entries compared to the stored `targets_json`) resets to `rollup_state = 'building'` so the new targets are verified; a package whose target set is unchanged retains its existing rollup state.
+3. Call `ws.Add(pkg)` for packages where `rollup_state != 'published' OR is_container IS NULL` — these need detection work (type check + binaries check). Newly inserted release packages always qualify since they start with `rollup_state = 'building'` and `is_container = NULL`. A package reset to `building` due to target-set change also re-qualifies.
 
 ### Garbage collection
 
@@ -248,7 +248,8 @@ New task in `internal/obs/tasks.go`:
 
 - Calls `obs.RepoPublishStates(ctx, project, pkg)` — this already fetches the result-level `state="published"` per repo/arch, which is exactly what the OBS `_result` response carries on the `<result>` wrapper element. `BuildResults` is not used here since it only captures the inner `<status code="succeeded">` and drops the result-level publish state.
 - Applies the same skip logic as `PublishStateTask`: ignores targets whose state is disabled, excluded, or locked (same `skipState` predicate used by real-time builds), so an intentionally disabled target does not keep a release package stuck in `building` forever.
-- Only sets `rollup_state = 'published'` when **all** non-skipped targets show `state = "published"` — partial availability is not sufficient.
+- Sets `Target.Published = true` on each target whose repo/arch shows `state = "published"`, and `false` otherwise. This keeps per-target published state consistent with real-time packages so UI and API consumers see the same shape.
+- Only sets `rollup_state = 'published'` when **all** non-skipped targets have `Target.Published = true` — partial availability is not sufficient.
 - If any non-skipped target is not yet published: sets `rollup_state = 'building'` (keeps package in working set for next check).
 
 ### Auto-remove from working set
@@ -291,7 +292,7 @@ Response formats are unchanged.
 
 ### Constructor signature changes
 
-`cfg.OBSRoot` must be threaded explicitly — it must not become a package-level constant or global. Two constructors need updating:
+`cfg.OBSRoot` must be threaded explicitly — it must not become a package-level constant or global. Three constructors need updating:
 
 - `api.NewRouter(db, hub, obsClient, cfg)` — passes `cfg.OBSRoot` to handlers that build project-path prefixes.
 - `mq.NewConsumer(url, cfg.OBSRoot, ...)` — uses root to filter incoming AMQP messages.
