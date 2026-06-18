@@ -66,14 +66,14 @@ func run() error {
 	pool.Start(ctx)
 	ws.StartScheduler(ctx, cfg.WorkerPool.PollInterval)
 
-	poller := obs.NewPoller(obsClient, db, cfg.Poller.Interval, h, ws)
+	poller := obs.NewPoller(obsClient, db, cfg.Poller.Interval, h, ws, cfg.OBSRoot)
 	consumer := mq.NewConsumer(cfg.MQ.URL, db, h, obsClient, ws)
 
 	go poller.Run(ctx)
 	go consumer.Run(ctx)
 	go runPruner(ctx, db, cfg.Poller.Interval, cfg.Store.EventRetention)
 
-	router := api.NewRouter(db, h)
+	router := api.NewRouter(db, h, obsClient)
 
 	var handler http.Handler = router
 	if cfg.Server.FrontendDir != "" {

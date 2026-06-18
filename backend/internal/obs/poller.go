@@ -20,13 +20,13 @@ type Poller struct {
 	client   *Client
 	db       *sql.DB
 	interval time.Duration
-	roots    []string
+	root     string
 	hub      *hubpkg.Hub
 	ws       *workingset.WorkingSet
 }
 
-func NewPoller(client *Client, db *sql.DB, interval time.Duration, h *hubpkg.Hub, ws *workingset.WorkingSet) *Poller {
-	return &Poller{client: client, db: db, interval: interval, roots: []string{"isv:percona", "isv:common"}, hub: h, ws: ws}
+func NewPoller(client *Client, db *sql.DB, interval time.Duration, h *hubpkg.Hub, ws *workingset.WorkingSet, root string) *Poller {
+	return &Poller{client: client, db: db, interval: interval, root: root, hub: h, ws: ws}
 }
 
 // Run blocks until ctx is cancelled. It ticks immediately on first call.
@@ -46,14 +46,10 @@ func (p *Poller) Run(ctx context.Context) {
 }
 
 func (p *Poller) tick(ctx context.Context) {
-	var projects []string
-	for _, root := range p.roots {
-		proj, err := p.discoverProjects(ctx, root)
-		if err != nil {
-			slog.Error("poller: discover projects", "root", root, "err", err)
-			return
-		}
-		projects = append(projects, proj...)
+	projects, err := p.discoverProjects(ctx, p.root)
+	if err != nil {
+		slog.Error("poller: discover projects", "root", p.root, "err", err)
+		return
 	}
 
 	liveProjects := make(map[string]bool, len(projects))
@@ -61,15 +57,10 @@ func (p *Poller) tick(ctx context.Context) {
 		liveProjects[proj] = true
 	}
 
-	// Load current store state keyed by (project, package)
-	var existing []*model.Package
-	for _, root := range p.roots {
-		pkgs, err := store.QueryPackages(p.db, root)
-		if err != nil {
-			slog.Error("poller: query packages", "root", root, "err", err)
-			return
-		}
-		existing = append(existing, pkgs...)
+	existing, err := store.QueryPackages(p.db, p.root)
+	if err != nil {
+		slog.Error("poller: query packages", "root", p.root, "err", err)
+		return
 	}
 	byKey := make(map[string]*model.Package, len(existing))
 	for _, pkg := range existing {
@@ -80,49 +71,72 @@ func (p *Poller) tick(ctx context.Context) {
 		if ctx.Err() != nil {
 			return
 		}
+		kind := Classify(p.root, project)
+		if kind == KindUnknown {
+			continue
+		}
+
 		results, err := p.client.BuildResults(ctx, project)
 		if err != nil {
 			slog.Warn("poller: build results", "project", project, "err", err)
 			continue
 		}
 
-		// Group results by package name
 		byPkg := map[string][]PackageBuildState{}
 		for _, r := range results {
 			byPkg[r.Package] = append(byPkg[r.Package], r)
 		}
 
-		scope := InferScope(project)
+		scope := InferScope(project) // kept for Package.Scope backward compat
 		for pkgName, targets := range byPkg {
 			pkg := buildPackage(project, pkgName, scope, targets)
+			pkg.Tags = ProjectTags(p.root, project)
+			pkg.IsRelease = kind == KindRelease
+
 			key := project + "/" + pkgName
 			prev := byKey[key]
 
 			rollupChanged := prev == nil || prev.RollupState != pkg.RollupState
-			scopeChanged := prev != nil && prev.Scope != pkg.Scope
-			if rollupChanged || targetsChanged(prev, pkg) || scopeChanged {
-				if err := store.UpsertPackageState(p.db, pkg, time.Now().UTC()); err != nil {
-					slog.Error("poller: upsert package", "pkg", pkgName, "err", err)
-					continue
-				}
-				p.hub.Notify(hubpkg.PackageUpdate(pkg))
-				p.ws.Add(pkg)
-				if rollupChanged && !isTransientRollup(pkg.RollupState) {
-					evt := stateChangeEvent(pkg, prev)
-					if err := store.AppendEvent(p.db, evt); err != nil {
-						slog.Error("poller: append event", "err", err)
-					} else {
-						p.hub.Notify(hubpkg.NewEvent(evt))
+			tagsChanged := prev != nil && len(prev.Tags) != len(pkg.Tags)
+
+			if kind.IsRealTime() {
+				if rollupChanged || targetsChanged(prev, pkg) || tagsChanged {
+					if err := store.UpsertPackageState(p.db, pkg, time.Now().UTC()); err != nil {
+						slog.Error("poller: upsert package", "pkg", pkgName, "err", err)
+						continue
 					}
+					p.hub.Notify(hubpkg.PackageUpdate(pkg))
+					p.ws.Add(pkg)
+					if rollupChanged && !isTransientRollup(pkg.RollupState) {
+						evt := stateChangeEvent(pkg, prev)
+						if err := store.AppendEvent(p.db, evt); err != nil {
+							slog.Error("poller: append event", "err", err)
+						} else {
+							p.hub.Notify(hubpkg.NewEvent(evt))
+						}
+					}
+				}
+			} else {
+				// Release project: upsert silently — no SSE broadcast, no events.
+				// Reset rollup to building if target set changed on an already-published package.
+				if prev != nil && prev.RollupState == model.RollupPublished && targetsChanged(prev, pkg) {
+					pkg.RollupState = model.RollupBuilding
+				}
+				if rollupChanged || targetsChanged(prev, pkg) || tagsChanged {
+					if err := store.UpsertPackageState(p.db, pkg, time.Now().UTC()); err != nil {
+						slog.Error("poller: upsert release package", "pkg", pkgName, "err", err)
+						continue
+					}
+				}
+				// Add to working set only if there is work remaining.
+				if pkg.RollupState != model.RollupPublished || pkg.IsContainer == nil {
+					p.ws.Add(pkg)
 				}
 			}
 		}
 	}
 
-	// Garbage-collect packages for projects that no longer exist in OBS.
-	// We only do this when discovery succeeded (projects is non-empty or root
-	// itself returned no subprojects), so a transient API failure cannot wipe
-	// the store.
+	// Garbage-collect packages for projects no longer in OBS.
 	storedProjects := make(map[string]bool)
 	for _, pkg := range existing {
 		storedProjects[pkg.Project] = true
