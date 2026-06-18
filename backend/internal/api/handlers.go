@@ -272,7 +272,9 @@ func releasesPackagesHandler(db *sql.DB, root string) http.HandlerFunc {
 			return
 		}
 		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(pkgs)
+		if err := json.NewEncoder(w).Encode(pkgs); err != nil {
+			return
+		}
 	}
 }
 
@@ -297,7 +299,9 @@ func releasesReposHandler(db *sql.DB, root string) http.HandlerFunc {
 			}
 		}
 		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(resp)
+		if err := json.NewEncoder(w).Encode(resp); err != nil {
+			return
+		}
 	}
 }
 
