@@ -184,7 +184,8 @@ Within each `tick()`, the classifier drives two code paths:
 **Release projects** (`kind.IsRealTime() == false`):
 1. Call `BuildResults` — the OBS `_result` API works for release projects and returns package names with per-target `<status code="succeeded">`. This gives the full package+target list in one call; no directory traversal is needed. Note: `BuildResults` captures only the package-level status, not the result-level `state="published"` wrapper — rollup state for release packages is therefore **not** derived from `BuildResults`; that is `BinariesCheckTask`'s responsibility.
 2. Upsert packages to DB with `is_release = 1`, project-level tags, and targets populated from `BuildResults`. A newly discovered release package with no prior DB row starts with `rollup_state = 'building'`. An already-known package that has a **changed target set** (new or removed repo/arch entries compared to the stored `targets_json`) resets to `rollup_state = 'building'` so the new targets are verified; a package whose target set is unchanged retains its existing rollup state.
-3. Call `ws.Add(pkg)` for packages where `rollup_state != 'published' OR is_container IS NULL` — these need detection work (type check + binaries check). Newly inserted release packages always qualify since they start with `rollup_state = 'building'` and `is_container = NULL`. A package reset to `building` due to target-set change also re-qualifies.
+3. **No `hub.Notify` and no event append** after upserting release packages — the artifacts tab is on-demand only. The poller skips both the broadcast and event-append calls whenever `pkg.IsRelease`.
+4. Call `ws.Add(pkg)` for packages where `rollup_state != 'published' OR is_container IS NULL` — these need detection work (type check + binaries check). Newly inserted release packages always qualify since they start with `rollup_state = 'building'` and `is_container = NULL`. A package reset to `building` due to target-set change also re-qualifies.
 
 ### Garbage collection
 
@@ -247,7 +248,7 @@ The worker runs a different pipeline based on `pkg.IsRelease`:
 New task in `internal/obs/tasks.go`:
 
 - Calls `obs.RepoPublishStates(ctx, project, pkg)` — this already fetches the result-level `state="published"` per repo/arch, which is exactly what the OBS `_result` response carries on the `<result>` wrapper element. `BuildResults` is not used here since it only captures the inner `<status code="succeeded">` and drops the result-level publish state.
-- Applies the same skip logic as `PublishStateTask`: ignores targets whose state is disabled, excluded, or locked (same `skipState` predicate used by real-time builds), so an intentionally disabled target does not keep a release package stuck in `building` forever.
+- Applies the same skip logic as the rest of the worker pipeline: ignores targets whose state is disabled, excluded, or locked (same `skipState` predicate used when building target lists), so an intentionally disabled target does not keep a release package stuck in `building` forever.
 - Sets `Target.Published = true` on each target whose repo/arch shows `state = "published"`, and `false` otherwise. This keeps per-target published state consistent with real-time packages so UI and API consumers see the same shape.
 - Only sets `rollup_state = 'published'` when **all** non-skipped targets have `Target.Published = true` — partial availability is not sufficient.
 - If any non-skipped target is not yet published: sets `rollup_state = 'building'` (keeps package in working set for next check).
@@ -298,9 +299,15 @@ Response formats are unchanged.
 - `mq.NewConsumer(url, cfg.OBSRoot, ...)` — uses root to filter incoming AMQP messages.
 - `obs.NewPoller(client, db, interval, hub, ws, root string)` — today it does not receive config or root; `root` is needed for `SearchProjects` and `Classify` calls.
 
-### SSE stream
+### SSE stream and event emission
 
-The worker suppresses hub notifications for release packages. After the task pipeline completes, `hub.Notify` is only called when `!pkg.IsRelease`. Release packages go through the detection pipeline (type check, binaries check) but their state changes are not broadcast — the artifacts tab fetches on demand from the DB.
+Release packages must not produce any real-time output. Three suppression points:
+
+1. **Poller upsert** — already covered above: no `hub.Notify`, no `store.AppendEvent` for `is_release` packages.
+2. **Worker `hub.Notify`** — after the task pipeline completes, `hub.Notify` is only called when `!pkg.IsRelease`.
+3. **Worker `emitBuildEvents`** — `emitBuildEvents` (which diffs old vs new targets and appends build events such as `published`) is skipped entirely when `pkg.IsRelease`. `BinariesCheckTask` flips `Target.Published`, which would otherwise trigger a `published` event; that must not happen for release packages.
+
+Release packages go through the detection pipeline (type check, publish-state check) but produce no SSE broadcasts and no events — the artifacts tab fetches on demand from the DB.
 
 ---
 
