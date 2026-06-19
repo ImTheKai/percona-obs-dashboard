@@ -122,6 +122,8 @@ func artifactMetadataHandler(obsClient *obs.Client, cache *binaryListCache) http
 				return obsClient.ProjectBinaryList(ctx, project)
 			})
 			if err != nil {
+				// Metadata is best-effort: log and return empty results for this project
+				// rather than failing the whole request (matches frontend's silent-ignore).
 				slog.Warn("artifact_metadata: binarylist fetch failed", "project", project, "err", err)
 			}
 			projectBinaries[project] = bins
