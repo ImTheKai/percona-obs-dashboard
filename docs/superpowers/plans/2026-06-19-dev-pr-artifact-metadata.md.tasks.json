@@ -1,0 +1,26 @@
+{
+  "planPath": "docs/superpowers/plans/2026-06-19-dev-pr-artifact-metadata.md",
+  "tasks": [
+    {
+      "id": 28,
+      "subject": "Task 1: Backend POST /api/artifacts/metadata endpoint",
+      "status": "pending",
+      "description": "**Goal:** Implement the metadata endpoint with a per-project binary-list cache and register it in the router.\n\n**Files:**\n- Create: `backend/internal/api/artifact_metadata.go`\n- Create: `backend/internal/api/artifact_metadata_test.go`\n- Modify: `backend/internal/api/server.go`\n\n**Acceptance Criteria:**\n- [ ] `POST /api/artifacts/metadata` returns 400 for an empty `items` array.\n- [ ] Package items return only distributable binaries; `built_at` reflects the max mtime of those binaries.\n- [ ] Container items return `built_at` from the `.containerinfo` binary with the highest mtime; no `binaries` field.\n- [ ] Two items from the same project result in a single `ProjectBinaryList` call (cache hit on second call).\n- [ ] `go test ./backend/internal/api/... -run TestArtifactMetadata` passes.\n\n**Verify:** `cd backend && go test ./internal/api/... -run TestArtifactMetadata -v` → all tests PASS\n\n```json:metadata\n{\"files\": [\"backend/internal/api/artifact_metadata.go\", \"backend/internal/api/artifact_metadata_test.go\", \"backend/internal/api/server.go\"], \"verifyCommand\": \"cd backend && go test ./internal/api/... -run TestArtifactMetadata -v\", \"acceptanceCriteria\": [\"POST /api/artifacts/metadata returns 400 for empty items\", \"Package items return only distributable binaries with max-mtime built_at\", \"Container items return built_at from .containerinfo max mtime, no binaries field\", \"Same project called twice results in one ProjectBinaryList call\"], \"modelTier\": \"standard\"}\n```"
+    },
+    {
+      "id": 29,
+      "subject": "Task 2: Frontend types and useArtifactMetadata composable",
+      "status": "pending",
+      "blockedBy": [28],
+      "description": "**Goal:** Extend `PackageRow` and `ContainerImage` with metadata fields and create the composable that batch-fetches and merges metadata.\n\n**Files:**\n- Modify: `frontend/src/composables/useArtifacts.ts`\n- Create: `frontend/src/composables/useArtifactMetadata.ts`\n\n**Acceptance Criteria:**\n- [ ] `PackageRow` has optional fields `mtime?: number` and `isRebuilding?: boolean`.\n- [ ] `ContainerImage` has new fields `project: string`, and `isRebuilding?: boolean`.\n- [ ] `useArtifacts` populates `ContainerImage.project` from `pkg.project`.\n- [ ] `useArtifactMetadata` skips the fetch when `isLiveContext.value` is false.\n- [ ] `enrichedPackageRows` returns rows with `builtAt`, `mtime`, `binaries`, and `isRebuilding` merged from metadata when available.\n- [ ] `npm run build` exits 0.\n\n**Verify:** `cd frontend && npm run build` → exits 0 with no TypeScript errors\n\n```json:metadata\n{\"files\": [\"frontend/src/composables/useArtifacts.ts\", \"frontend/src/composables/useArtifactMetadata.ts\"], \"verifyCommand\": \"cd frontend && npm run build\", \"acceptanceCriteria\": [\"PackageRow has mtime? and isRebuilding? fields\", \"ContainerImage has project and isRebuilding? fields\", \"useArtifacts populates ContainerImage.project\", \"useArtifactMetadata skips fetch when isLiveContext is false\", \"enrichedPackageRows merges builtAt mtime binaries isRebuilding from metadata\"], \"modelTier\": \"standard\"}\n```"
+    },
+    {
+      "id": 30,
+      "subject": "Task 3: Wire ArtifactsPanel and add Rebuilding pills to sub-tabs",
+      "status": "pending",
+      "blockedBy": [29],
+      "description": "**Goal:** Connect `useArtifactMetadata` to `ArtifactsPanel` and render the \"Rebuilding\" pill in both sub-tabs.\n\n**Files:**\n- Modify: `frontend/src/components/ArtifactsPanel.vue`\n- Modify: `frontend/src/components/PackagesSubTab.vue`\n- Modify: `frontend/src/components/ContainersSubTab.vue`\n\n**Acceptance Criteria:**\n- [ ] Release context rows pass through unchanged (no metadata fetch, no Rebuilding pill).\n- [ ] DEV/PR package rows show `builtAt` timestamp and \"Rebuilding\" pill when `isRebuilding` is true.\n- [ ] DEV/PR container images show BUILT timestamp and \"Rebuilding\" pill when `isRebuilding` is true.\n- [ ] Expanding a DEV/PR package row with metadata binaries does not trigger `GET /api/binaries`.\n- [ ] `npm run build` exits 0.\n\n**Verify:** `cd frontend && npm run build` → exits 0 with no TypeScript errors\n\n```json:metadata\n{\"files\": [\"frontend/src/components/ArtifactsPanel.vue\", \"frontend/src/components/PackagesSubTab.vue\", \"frontend/src/components/ContainersSubTab.vue\"], \"verifyCommand\": \"cd frontend && npm run build\", \"acceptanceCriteria\": [\"Release context rows unchanged\", \"DEV/PR package rows show Rebuilding pill when isRebuilding\", \"DEV/PR container images show Rebuilding pill when isRebuilding\", \"npm run build exits 0\"], \"modelTier\": \"standard\"}\n```"
+    }
+  ],
+  "lastUpdated": "2026-06-19T00:00:00Z"
+}
