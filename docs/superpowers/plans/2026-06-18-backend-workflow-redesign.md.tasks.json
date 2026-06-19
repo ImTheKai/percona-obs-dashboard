@@ -1,0 +1,11 @@
+{
+  "tasks": [
+    {"id": "9",  "subject": "Task 1: Config + ProjectClassifier",              "status": "completed",  "lastUpdated": "2026-06-18T00:00:00Z"},
+    {"id": "10", "subject": "Task 2: DB Schema + Migrations",                  "status": "completed",  "lastUpdated": "2026-06-18T00:00:00Z"},
+    {"id": "11", "subject": "Task 3: Model + Store Layer",                     "status": "completed",  "lastUpdated": "2026-06-18T00:00:00Z"},
+    {"id": "12", "subject": "Task 4: Poller Refactor",                         "status": "completed",  "lastUpdated": "2026-06-18T00:00:00Z"},
+    {"id": "13", "subject": "Task 5: Worker Pipeline Split + BinariesCheckTask","status": "completed", "lastUpdated": "2026-06-18T00:00:00Z"},
+    {"id": "14", "subject": "Task 6: MQ Consumer Refactor",                    "status": "completed",  "lastUpdated": "2026-06-18T00:00:00Z"},
+    {"id": "15", "subject": "Task 7: API Handlers + Constructor Wiring",       "status": "completed",  "lastUpdated": "2026-06-18T00:00:00Z"}
+  ]
+}

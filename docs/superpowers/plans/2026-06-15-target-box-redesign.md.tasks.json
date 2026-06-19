@@ -1,0 +1,12 @@
+{
+  "planPath": "docs/superpowers/plans/2026-06-15-target-box-redesign.md",
+  "tasks": [
+    {
+      "id": 67,
+      "subject": "Task 1: Refactor PackageCard.vue target rows",
+      "status": "completed",
+      "description": "**Goal:** Replace the flat target row `<a>` elements with collapsible `<div>` rows that show build reason and state-specific detail in a structured body.\n\n**Files:**\n- Modify: `frontend/src/components/PackageCard.vue`\n\n**Acceptance Criteria:**\n- [ ] Target header shows: dot, `repo/arch`, state label (right-aligned), `log ↗` link, chevron — chevron absent when target has no detail\n- [ ] Clicking header toggles body open/closed; clicking `log ↗` navigates without toggling\n- [ ] Body shows `Build reason` section when `t.build_reason` is set; packages appended as `: pkg1, pkg2` when non-empty\n- [ ] Body shows state-specific section per design\n- [ ] `finished` dot and label recolour based on details value\n- [ ] `finished` background recolours to match outcome\n- [ ] `showAll` / \"show N more\" buttons still work as before\n- [ ] `vue-tsc --noEmit` passes with no errors\n\n**Verify:** `cd frontend && npm run build` → exits 0 with no TypeScript errors\n\n```json:metadata\n{\"files\": [\"frontend/src/components/PackageCard.vue\"], \"verifyCommand\": \"cd frontend && npm run build\", \"acceptanceCriteria\": [\"Target header shows dot, repo/arch, state label, log link, chevron\", \"Chevron absent when target has no detail\", \"Clicking header toggles body; log link navigates without toggling\", \"Body shows Build reason section when build_reason is set\", \"Body shows state-specific section per state table in spec\", \"finished dot/label/bg recolour based on details value\", \"showAll / show N more still works\", \"vue-tsc passes with no errors\"], \"modelTier\": \"mechanical\"}\n```"
+    }
+  ],
+  "lastUpdated": "2026-06-15T12:00:00Z"
+}

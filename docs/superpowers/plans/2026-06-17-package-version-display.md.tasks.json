@@ -1,0 +1,67 @@
+{
+  "tasks": [
+    {
+      "id": "96",
+      "subject": "Task 1: Backend model + store layer",
+      "status": "pending",
+      "blockedBy": [],
+      "files": ["backend/internal/model/types.go","backend/internal/store/db.go","backend/internal/store/packages.go","backend/internal/store/events.go","backend/internal/store/packages_test.go","backend/internal/store/events_test.go"],
+      "verifyCommand": "cd backend && go test ./internal/store/... -v",
+      "lastUpdated": "2026-06-17T00:00:00Z"
+    },
+    {
+      "id": "97",
+      "subject": "Task 2: OBS client methods",
+      "status": "pending",
+      "blockedBy": ["96"],
+      "files": ["backend/internal/obs/client.go","backend/internal/obs/client_test.go"],
+      "verifyCommand": "cd backend && go test ./internal/obs/... -v -run \"TestPackageIsContainer|TestPackageVersionResult|TestPackageContainerInfoFilename|TestPackageContainerTags\"",
+      "lastUpdated": "2026-06-17T00:00:00Z"
+    },
+    {
+      "id": "98",
+      "subject": "Task 3: Worker tasks (PackageTypeTask, VersionTask, ContainerTagsTask)",
+      "status": "pending",
+      "blockedBy": ["96", "97"],
+      "files": ["backend/internal/obs/tasks.go","backend/internal/obs/tasks_test.go"],
+      "verifyCommand": "cd backend && go test ./internal/obs/... -v -run \"TestPackageTypeTask|TestVersionTask|TestContainerTagsTask\"",
+      "lastUpdated": "2026-06-17T00:00:00Z"
+    },
+    {
+      "id": "99",
+      "subject": "Task 4: Wire pipeline and emit version in events",
+      "status": "pending",
+      "blockedBy": ["98"],
+      "files": ["backend/cmd/obsboard/main.go","backend/internal/worker/worker.go"],
+      "verifyCommand": "cd backend && go build ./... && go test ./...",
+      "lastUpdated": "2026-06-17T00:00:00Z"
+    },
+    {
+      "id": "100",
+      "subject": "Task 5: Frontend types and displayVersion helper",
+      "status": "pending",
+      "blockedBy": [],
+      "files": ["frontend/src/types/api.ts","frontend/src/composables/useEventDisplay.ts"],
+      "verifyCommand": "cd frontend && npm run build",
+      "lastUpdated": "2026-06-17T00:00:00Z"
+    },
+    {
+      "id": "101",
+      "subject": "Task 6: PackageCard version badge",
+      "status": "pending",
+      "blockedBy": ["100"],
+      "files": ["frontend/src/components/PackageCard.vue"],
+      "verifyCommand": "cd frontend && npm run build",
+      "lastUpdated": "2026-06-17T00:00:00Z"
+    },
+    {
+      "id": "102",
+      "subject": "Task 7: EventRow and PackageEventGroup version badges",
+      "status": "pending",
+      "blockedBy": ["100"],
+      "files": ["frontend/src/components/EventRow.vue","frontend/src/components/PackageEventGroup.vue"],
+      "verifyCommand": "cd frontend && npm run build",
+      "lastUpdated": "2026-06-17T00:00:00Z"
+    }
+  ]
+}
