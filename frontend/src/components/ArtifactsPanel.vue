@@ -99,7 +99,7 @@ const selectedContext = ref<Context>(PPG_CONTEXT)
 
 // Package state (self-fetched)
 const artifactsPackages = ref<import('../types/api').Package[]>([])
-const artifactsLoading = ref(true)
+const pendingFetches = ref(0)
 
 // Version derived from fetched packages
 const availableVersions = computed<string[]>(() => {
@@ -131,7 +131,7 @@ const selectedRepo = computed<RepoInfo | null>(
 )
 
 async function fetchPackages(ctx: Context) {
-  artifactsLoading.value = true
+  pendingFetches.value++
   try {
     // Fetch all versions for the selected context so the version selector can
     // be derived from the complete package corpus. The tab content filters by
@@ -143,7 +143,7 @@ async function fetchPackages(ctx: Context) {
   } catch {
     artifactsPackages.value = []
   } finally {
-    artifactsLoading.value = false
+    pendingFetches.value--
   }
 }
 
@@ -155,6 +155,7 @@ async function fetchRepos(version: string) {
   } else {
     url = `${ctx.apiBase}/${version}/repos`
   }
+  pendingFetches.value++
   try {
     const res = await fetch(url)
     const data = await res.json() as { rpm: { obs: string; name: string }[]; deb: { obs: string; name: string }[] }
@@ -168,10 +169,13 @@ async function fetchRepos(version: string) {
     }
   } catch {
     repos.value = []
+  } finally {
+    pendingFetches.value--
   }
 }
 
 async function fetchReleaseArtifacts(version: string) {
+  pendingFetches.value++
   try {
     const res = await fetch(`/api/releases/ppg/${version}/artifacts`)
     if (!res.ok) throw new Error(res.statusText)
@@ -184,6 +188,8 @@ async function fetchReleaseArtifacts(version: string) {
   } catch {
     releaseArtifacts.value = null
     repos.value = []
+  } finally {
+    pendingFetches.value--
   }
 }
 
@@ -244,7 +250,7 @@ const { enrichedPackageRows, enrichedContainerImages, isLoading: metadataLoading
   computed(() => !isReleaseContext.value),
 )
 
-const isLoading = computed(() => artifactsLoading.value || metadataLoading.value)
+const isLoading = computed(() => pendingFetches.value > 0 || metadataLoading.value)
 
 const packageRows = computed<PackageRow[]>(() => {
   if (!isReleaseContext.value) return enrichedPackageRows.value.filter(row => row.binaries && row.binaries.length > 0)
