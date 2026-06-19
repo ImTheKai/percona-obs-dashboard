@@ -582,11 +582,7 @@ function stateClass(state: string): string {
   color: var(--success, #16a34a);
 }
 
-.status-building {
-  background: #fef9c3;
-  color: #a16207;
-}
-
+.status-building,
 .status-rebuilding {
   background: #fef9c3;
   color: #a16207;
