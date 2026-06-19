@@ -1,0 +1,75 @@
+# PPG OBS Dashboard
+
+A real-time build monitoring dashboard for PPG packages on the Open Build Service.
+The dashboard polls OBS on a schedule and consumes RabbitMQ build events, stores state in SQLite, and renders a live board view with per-package rollup states and a build event log.
+
+## What you get
+
+- Package cards showing live rollup state (building, failed, succeeded, published) across all PPG OBS projects.
+- Per-target build event log: build started, succeeded, failed, published — filterable by tag and time window.
+- Artifacts view — binary package download links and container image pull commands, browsable by version, repo, and arch; covers dev builds, releases, and PRs.
+- Tag-based filtering (RPM, DEB, container) and version selector.
+- PR build tracking: dedicated board context per OBS PR branch.
+- SSE-based live updates — cards and event log update in real time without a page refresh.
+
+## Quick start
+
+```sh
+git clone <repo-url> obs-dashboard
+cd obs-dashboard
+
+cp .env.example .env     # add OBS credentials (required)
+
+task dev                 # http://localhost:4000
+```
+
+`task dev` builds and starts both the Go backend and the Vite dev server in Docker.
+The frontend proxies API calls to the backend, so only `:4000` needs to be open.
+
+## Configuration
+
+Secrets and runtime settings live in `.env`. An optional `config.yaml` provides the
+same knobs in YAML form — environment variables always take precedence.
+
+### `.env`
+
+| Variable | Default | Purpose |
+|---|---|---|
+| `OBS_USERNAME` | *(required)* | OBS account username |
+| `OBS_PASSWORD` | *(required)* | OBS account password |
+| `OBS_BASE_URL` | `https://api.opensuse.org` | OBS API base URL |
+| `MQ_URL` | `amqps://opensuse:opensuse@rabbit.opensuse.org:5671/` | RabbitMQ connection URL |
+| `POLL_INTERVAL` | `2m` | How often the poller fetches OBS build results |
+| `DB_PATH` | `/data/obsboard.db` | SQLite database path (inside the container) |
+| `EVENT_RETENTION` | `7d` | How long build events are kept |
+| `HTTP_PORT` | `4000` | Port the backend listens on |
+
+Copy `.env.example` for a pre-filled template.
+
+### `config.yaml` (optional)
+
+`config.yaml.example` shows the equivalent YAML structure. Useful if you prefer
+file-based config or need to set fields not exposed as env vars (e.g. `obs_root`).
+The file is read on startup; environment variables override any value it contains.
+
+## Development
+
+```sh
+task dev          # start backend (:4000) + Vite dev server (:5173), hot reload
+task down         # stop the development stack
+```
+
+The working tree is bind-mounted into the frontend container, so edits appear
+live. Backend changes require a container rebuild (`task down && task dev`).
+
+## Production
+
+```sh
+task redeploy     # (re)build and (re)start the production stack
+task prod-logs    # tail production logs
+task down-prod    # stop the production stack
+```
+
+The production build compiles the frontend into static assets and embeds them
+in a single Go binary inside a minimal Alpine image. Persistent state lives in
+`./data` (bind-mounted into the container).
