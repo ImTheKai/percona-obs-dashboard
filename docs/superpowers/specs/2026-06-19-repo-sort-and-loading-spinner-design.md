@@ -95,33 +95,43 @@ CSS for the spinner and loading state is scoped to `PackagesSubTab`. The `spinne
 
 ---
 
-## Feature 3: Hide Package Rows with No Binaries
+## Feature 3: Hide and Grey-out Package Rows Based on Binaries
 
-### `frontend/src/composables/useArtifacts.ts` or `frontend/src/components/ArtifactsPanel.vue`
+### Visibility and interactivity rules
 
-After metadata enrichment, filter `packageRows` to exclude rows that have no binaries. A row is considered to **have binaries** if ANY of the following is true:
+Two properties of `row.binaries` (populated by the metadata fetch) drive the entire display decision:
 
-- `row.binaries && row.binaries.length > 0` — metadata fetch returned binary files
-- `row.state === 'succeeded'` — OBS reports the build succeeded (binaries exist even if metadata hasn't loaded yet or failed silently)
-- `row.published === true` — the package has been published (implies a prior successful build)
+| Condition | Result |
+|---|---|
+| `!row.binaries \|\| row.binaries.length === 0` | Row is **hidden** — not rendered at all |
+| `row.binaries.length > 0` and `row.state === 'succeeded'` | Row is **shown and enabled** — fully interactive, expand button active |
+| `row.binaries.length > 0` and `row.state !== 'succeeded'` | Row is **shown but greyed out and disabled** — binaries are visible but the row is not clickable (covers the rebuilding case: prior binaries exist but build is in progress) |
 
-A row is **hidden** when none of the above applies — i.e., the build is in a non-terminal or failed state (`failed`, `building`, `scheduled`, `blocked`, `disabled`, `excluded`, `broken`, `unresolvable`) and the metadata fetch returned no binaries for it.
+`row.published` and other state values do not affect visibility — `row.binaries` is the sole gate.
 
-The filter is applied in `ArtifactsPanel.vue` after the `enrichedPackageRows` computed, so it is always evaluated against fully-enriched data:
+### `frontend/src/components/ArtifactsPanel.vue`
+
+Filter enriched rows before passing to `PackagesSubTab`:
 
 ```typescript
 const visiblePackageRows = computed(() =>
-  enrichedPackageRows.value.filter(row =>
-    (row.binaries && row.binaries.length > 0) ||
-    row.state === 'succeeded' ||
-    row.published
-  )
+  enrichedPackageRows.value.filter(row => row.binaries && row.binaries.length > 0)
 )
 ```
 
-`visiblePackageRows` is passed to `PackagesSubTab` instead of `enrichedPackageRows`. The `PackagesSubTab` component itself needs no changes for this feature — it receives only the rows it should show.
+Pass `visiblePackageRows` to `PackagesSubTab` instead of `enrichedPackageRows`.
 
-This filter applies only in the live/DEV/PR context. Release-context package rows come from a pre-filtered API response and are unaffected.
+This filter applies only in the live/DEV/PR context. Release-context rows are unaffected.
+
+### `frontend/src/components/PackagesSubTab.vue`
+
+The row button already has `:disabled` and a `pkg-row:disabled` CSS style. Update the disabled condition to:
+
+```typescript
+:disabled="row.state !== 'succeeded'"
+```
+
+And apply a greyed-out appearance when disabled (the existing `.pkg-row:disabled` scoped style handles this — verify it dims the row visually; add `opacity: 0.5` if not already present).
 
 ---
 
