@@ -27,10 +27,13 @@ export interface PackageRow {
   binariesAvailable: boolean
   binaries?: ArtifactBinary[]
   builtAt?: string
+  mtime?: number
+  isRebuilding?: boolean
 }
 
 export interface ContainerImage {
   id: string
+  project: string
   imageName: string
   baseOs: string
   registry: string
@@ -40,6 +43,7 @@ export interface ContainerImage {
   published: boolean
   mtime?: number
   builtAt?: string
+  isRebuilding?: boolean
 }
 
 export function deriveBaseOs(project: string): string {
@@ -131,6 +135,7 @@ export function useArtifacts(
 
         return {
           id: pkg.project + '/' + pkg.name,
+          project: pkg.project,
           imageName: pkg.name,
           baseOs,
           registry,
