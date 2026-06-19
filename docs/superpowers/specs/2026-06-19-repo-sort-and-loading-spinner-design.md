@@ -1,6 +1,6 @@
-# Repo Distro Sorting and Packages Loading Spinner — Design
+# Repo Distro Sorting, Loading Spinner, and Binary-less Row Filtering — Design
 
-**Goal:** Two independent UX improvements to the Artifacts tab Packages view: (1) replace the RPM/DEB sidebar section headers with distro-brand sections sorted by family and version, and (2) show a centred spinner in the package list while the packages and metadata fetches are in flight.
+**Goal:** Three UX improvements to the Artifacts tab Packages view: (1) replace the RPM/DEB sidebar section headers with distro-brand sections sorted by family and version, (2) show a centred spinner while packages and metadata are loading, and (3) hide package rows that have no binaries.
 
 **Architecture:** Pure frontend changes — no backend or API changes. Distro detection lives as a utility function alongside the `RepoInfo` type. Loading state is threaded from the two existing fetch sites down to `PackagesSubTab` as a single `loading` prop.
 
@@ -12,6 +12,7 @@
 - Loading style: centred spinner with label.
 - Spinner covers both the packages fetch and the metadata fetch — disappears only when both resolve.
 - Containers sub-tab: no spinner (fast enough, metadata not blocking).
+- Package rows with no binaries are hidden; binaries presence is primary gate, state drives row behaviour once visible.
 
 ---
 
@@ -94,9 +95,40 @@ CSS for the spinner and loading state is scoped to `PackagesSubTab`. The `spinne
 
 ---
 
+## Feature 3: Hide Package Rows with No Binaries
+
+### `frontend/src/composables/useArtifacts.ts` or `frontend/src/components/ArtifactsPanel.vue`
+
+After metadata enrichment, filter `packageRows` to exclude rows that have no binaries. A row is considered to **have binaries** if ANY of the following is true:
+
+- `row.binaries && row.binaries.length > 0` — metadata fetch returned binary files
+- `row.state === 'succeeded'` — OBS reports the build succeeded (binaries exist even if metadata hasn't loaded yet or failed silently)
+- `row.published === true` — the package has been published (implies a prior successful build)
+
+A row is **hidden** when none of the above applies — i.e., the build is in a non-terminal or failed state (`failed`, `building`, `scheduled`, `blocked`, `disabled`, `excluded`, `broken`, `unresolvable`) and the metadata fetch returned no binaries for it.
+
+The filter is applied in `ArtifactsPanel.vue` after the `enrichedPackageRows` computed, so it is always evaluated against fully-enriched data:
+
+```typescript
+const visiblePackageRows = computed(() =>
+  enrichedPackageRows.value.filter(row =>
+    (row.binaries && row.binaries.length > 0) ||
+    row.state === 'succeeded' ||
+    row.published
+  )
+)
+```
+
+`visiblePackageRows` is passed to `PackagesSubTab` instead of `enrichedPackageRows`. The `PackagesSubTab` component itself needs no changes for this feature — it receives only the rows it should show.
+
+This filter applies only in the live/DEV/PR context. Release-context package rows come from a pre-filtered API response and are unaffected.
+
+---
+
 ## Scope
 
 - No backend changes.
 - No changes to the Containers sub-tab.
-- No changes to the release-context artifact view (release artifacts are pre-computed and fast).
+- No changes to the release-context artifact view (release artifacts are pre-computed and already filtered).
 - The RPM/DEB filter chips remain — they filter the package list, not the sidebar grouping.
+- Binary-less row filtering applies only in live/DEV/PR context.
