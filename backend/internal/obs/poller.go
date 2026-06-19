@@ -94,6 +94,7 @@ func (p *Poller) tick(ctx context.Context) {
 
 			key := project + "/" + pkgName
 			prev := byKey[key]
+			preservePackageEnrichment(prev, pkg)
 
 			// Preserve published state: OBS build results only return "succeeded",
 			// never "published". Without this guard the poller would flip a published
@@ -178,9 +179,65 @@ func (p *Poller) tick(ctx context.Context) {
 	}
 }
 
-// targetsChanged returns true when any individual target state differs between
-// the stored package and the freshly-polled one. This catches transient state
-// changes (e.g. succeeded→finished→succeeded) that don't alter the rollup.
+func preservePackageEnrichment(prev, next *model.Package) {
+	if prev == nil || next == nil {
+		return
+	}
+	if next.IsContainer == nil {
+		next.IsContainer = prev.IsContainer
+	}
+	if next.Version == "" {
+		next.Version = prev.Version
+	}
+	if len(next.ContainerTags) == 0 {
+		next.ContainerTags = prev.ContainerTags
+	}
+	if next.Trigger == nil {
+		next.Trigger = prev.Trigger
+	}
+	if len(prev.Tags) > 0 {
+		seen := make(map[string]bool, len(next.Tags)+len(prev.Tags))
+		for _, tag := range next.Tags {
+			seen[tag] = true
+		}
+		for _, tag := range prev.Tags {
+			if !seen[tag] {
+				next.Tags = append(next.Tags, tag)
+			}
+		}
+	}
+
+	prevTargets := make(map[string]model.Target, len(prev.Targets))
+	for _, target := range prev.Targets {
+		prevTargets[target.Repo+"/"+target.Arch] = target
+	}
+	for i := range next.Targets {
+		prevTarget, ok := prevTargets[next.Targets[i].Repo+"/"+next.Targets[i].Arch]
+		if !ok || prevTarget.State != next.Targets[i].State {
+			continue
+		}
+		if next.Targets[i].Details == "" {
+			next.Targets[i].Details = prevTarget.Details
+		}
+		if next.Targets[i].BlockedBy == "" {
+			next.Targets[i].BlockedBy = prevTarget.BlockedBy
+		}
+		if next.Targets[i].BuildReason == "" {
+			next.Targets[i].BuildReason = prevTarget.BuildReason
+		}
+		if len(next.Targets[i].BuildReasonPackages) == 0 {
+			next.Targets[i].BuildReasonPackages = prevTarget.BuildReasonPackages
+		}
+		if !next.Targets[i].Published {
+			next.Targets[i].Published = prevTarget.Published
+		}
+	}
+}
+
+// targetsChanged returns true when any individual target state or detail differs
+// between the stored package and the freshly-polled one. This catches transient
+// state changes (e.g. succeeded→finished→succeeded) and late OBS details (e.g.
+// finished with outcome succeeded) that don't alter the rollup.
 func targetsChanged(prev *model.Package, next *model.Package) bool {
 	if prev == nil {
 		return true
@@ -188,12 +245,13 @@ func targetsChanged(prev *model.Package, next *model.Package) bool {
 	if len(prev.Targets) != len(next.Targets) {
 		return true
 	}
-	prevStates := make(map[string]string, len(prev.Targets))
+	prevTargets := make(map[string]model.Target, len(prev.Targets))
 	for _, t := range prev.Targets {
-		prevStates[t.Repo+"/"+t.Arch] = t.State
+		prevTargets[t.Repo+"/"+t.Arch] = t
 	}
 	for _, t := range next.Targets {
-		if prevStates[t.Repo+"/"+t.Arch] != t.State {
+		prevTarget, ok := prevTargets[t.Repo+"/"+t.Arch]
+		if !ok || prevTarget.State != t.State || prevTarget.Details != t.Details {
 			return true
 		}
 	}

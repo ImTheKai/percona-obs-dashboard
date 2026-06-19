@@ -19,6 +19,8 @@ const emit = defineEmits<{
 
 const rpmRepos = computed(() => props.repos.filter(r => r.type === 'rpm'))
 const debRepos = computed(() => props.repos.filter(r => r.type === 'deb'))
+const showPackageList = computed(() => props.selectedRepo !== null || props.packageRows.length > 0)
+const isReleaseSnapshot = computed(() => props.selectedRepo?.obs === 'release')
 
 // ----- snippet -----
 
@@ -147,13 +149,15 @@ function stateClass(state: string): string {
         >{{ repo.name }}</button>
       </template>
 
-      <div v-if="repos.length === 0" class="sidebar-empty">Loading…</div>
+      <div v-if="repos.length === 0" class="sidebar-empty">
+        {{ packageRows.length > 0 ? 'No build repos' : 'Loading…' }}
+      </div>
     </div>
 
     <!-- Main content -->
     <div class="content">
       <!-- Combined repo header + snippet card -->
-      <div class="repo-card" v-if="selectedRepo">
+      <div class="repo-card" v-if="selectedRepo && !isReleaseSnapshot">
         <div class="repo-header">
           <div class="repo-header-left">
             <span class="repo-title">{{ selectedRepo.name }}</span>
@@ -188,10 +192,14 @@ function stateClass(state: string): string {
       </div>
 
       <!-- Package list card -->
-      <div class="pkg-card" v-if="selectedRepo">
+      <div class="pkg-card" v-if="showPackageList">
         <div class="pkg-card-header">
           <span class="pkg-card-title">Packages</span>
-          <span class="pkg-card-subtitle">{{ packageRows.length }} available · {{ selectedRepo.name }} / {{ artArch }}</span>
+          <span class="pkg-card-subtitle">
+            {{ packageRows.length }} available
+            <template v-if="selectedRepo && !isReleaseSnapshot"> · {{ selectedRepo.name }} / {{ artArch }}</template>
+            <template v-else-if="isReleaseSnapshot"> · Release snapshot</template>
+          </span>
         </div>
         <div class="pkg-list">
           <div
@@ -203,11 +211,11 @@ function stateClass(state: string): string {
             <button
               class="pkg-row"
               :class="{ expanded: expanded[rowKey(row)] }"
-              @click="row.state === 'succeeded' ? toggleRow(row) : undefined"
-              :disabled="row.state !== 'succeeded'"
-              :title="row.state !== 'succeeded' ? 'Not built' : 'Click to show binaries'"
+              @click="row.binariesAvailable && row.state === 'succeeded' ? toggleRow(row) : undefined"
+              :disabled="!row.binariesAvailable || row.state !== 'succeeded'"
+              :title="!row.binariesAvailable ? 'No target binaries available' : (row.state !== 'succeeded' ? 'Not built' : 'Click to show binaries')"
             >
-              <span class="expand-glyph">{{ expanded[rowKey(row)] ? '▼' : '▶' }}</span>
+              <span class="expand-glyph">{{ row.binariesAvailable ? (expanded[rowKey(row)] ? '▼' : '▶') : '' }}</span>
               <code class="pkg-name">{{ row.name }}</code>
               <code v-if="row.version" class="pkg-version">{{ row.version }}</code>
 <span class="status-badge" :class="row.published ? 'status-published' : stateClass(row.state)">

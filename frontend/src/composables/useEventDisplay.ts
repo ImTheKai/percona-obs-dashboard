@@ -58,9 +58,9 @@ export function showReason(event: Event): boolean {
 }
 
 // Returns the formatted version string for display, or null if unavailable.
-// Containers: "Tag: 18.4-1-1.7"; RPMs: strips release suffix "17.5-1" → "17.5".
+// Containers: "Tag: 18.4"; RPMs: strips release suffix "17.5-1" → "17.5".
 export function displayVersion(version: string | undefined, isContainer: boolean): string | null {
   if (!version) return null
-  if (isContainer) return 'Tag: ' + version
+  if (isContainer) return 'Tag: ' + (version.match(/[0-9.]+/)?.[0] ?? version)
   return version.replace(/-[^-]+$/, '')
 }

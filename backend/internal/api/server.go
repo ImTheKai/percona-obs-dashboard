@@ -4,6 +4,7 @@ import (
 	"database/sql"
 	"fmt"
 	"net/http"
+	"time"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
@@ -59,10 +60,19 @@ func streamHandler(h *hub.Hub) http.HandlerFunc {
 		h.Register((chan<- []byte)(ch))
 		defer h.Unregister((chan<- []byte)(ch))
 
+		fmt.Fprint(w, ": connected\n\n")
+		flusher.Flush()
+
+		heartbeat := time.NewTicker(25 * time.Second)
+		defer heartbeat.Stop()
+
 		for {
 			select {
 			case <-r.Context().Done():
 				return
+			case <-heartbeat.C:
+				fmt.Fprint(w, ": ping\n\n")
+				flusher.Flush()
 			case payload := <-ch:
 				fmt.Fprintf(w, "data: %s\n\n", payload)
 				flusher.Flush()

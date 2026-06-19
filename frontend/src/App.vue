@@ -31,6 +31,7 @@ const DEFAULT_CONTEXT: Context = {
   prefix: 'isv:percona:ppg',
 }
 const selectedContext = ref<Context>(DEFAULT_CONTEXT)
+const selectedPrefix = computed(() => selectedContext.value.prefix)
 const prefixDepth = computed(() => selectedContext.value.prefix.split(':').length)
 
 // Navigation state
@@ -130,7 +131,7 @@ async function refresh() {
 onMounted(() => {
   refresh()
 })
-useRealtimeStream(rawPackages, events, prGroups, refresh, refreshPR)
+useRealtimeStream(rawPackages, events, prGroups, selectedPrefix, refresh, refreshPR)
 
 // Re-fetch on window change
 watch([windowMin, customFrom, customTo], () => refresh())

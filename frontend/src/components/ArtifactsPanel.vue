@@ -129,7 +129,10 @@ const selectedRepo = computed<RepoInfo | null>(
 async function fetchPackages(ctx: Context) {
   artifactsLoading.value = true
   try {
-    const url = `${ctx.apiBase}/${localVersion.value}/packages`
+    // Fetch all versions for the selected context so the version selector can
+    // be derived from the complete package corpus. The tab content filters by
+    // localVersion client-side.
+    const url = `${ctx.apiBase}/_/packages`
     const res = await fetch(url)
     const data = await res.json()
     artifactsPackages.value = Array.isArray(data) ? data : (data.packages ?? [])
@@ -142,10 +145,11 @@ async function fetchPackages(ctx: Context) {
 
 async function fetchRepos(version: string) {
   const ctx = selectedContext.value
+  const isReleaseContext = ctx.apiBase.startsWith('/api/releases/')
   let url: string
   if (ctx.apiBase.startsWith('/api/products/')) {
     url = `/api/products/ppg/${version}/repos`
-  } else if (ctx.apiBase.startsWith('/api/releases/')) {
+  } else if (isReleaseContext) {
     url = `/api/releases/ppg/${version}/repos`
   } else {
     url = `${ctx.apiBase}/${version}/repos`
@@ -157,12 +161,16 @@ async function fetchRepos(version: string) {
       ...data.rpm.map(r => ({ ...r, type: 'rpm' as const })),
       ...data.deb.map(r => ({ ...r, type: 'deb' as const })),
     ]
-    repos.value = next
-    if (next.length > 0 && !next.find(r => r.obs === artRepoObs.value)) {
-      artRepoObs.value = next.find(r => r.type === 'rpm')?.obs ?? next[0].obs
+    repos.value = isReleaseContext && next.length === 0
+      ? [{ obs: 'release', name: 'Release snapshot', type: 'rpm' as const }]
+      : next
+    if (repos.value.length > 0 && !repos.value.find(r => r.obs === artRepoObs.value)) {
+      artRepoObs.value = repos.value.find(r => r.type === 'rpm')?.obs ?? repos.value[0].obs
     }
   } catch {
-    repos.value = []
+    repos.value = isReleaseContext
+      ? [{ obs: 'release', name: 'Release snapshot', type: 'rpm' as const }]
+      : []
   }
 }
 

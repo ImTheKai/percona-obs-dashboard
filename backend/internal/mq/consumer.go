@@ -285,6 +285,7 @@ func (c *Consumer) handle(ctx context.Context, msg amqp.Delivery) {
 // TotalTargets, and RollupState from the full merged target list.
 func (c *Consumer) mergePackageTarget(m mqMessage, newState model.RollupState) *model.Package {
 	targets := []model.Target{{Repo: m.Repo, Arch: m.Arch, State: string(newState)}}
+	var existingPkg *model.Package
 
 	existing, err := store.QueryPackages(c.db, m.Project)
 	if err != nil {
@@ -292,12 +293,21 @@ func (c *Consumer) mergePackageTarget(m mqMessage, newState model.RollupState) *
 	} else {
 		for _, p := range existing {
 			if p.Name == m.Package {
+				existingPkg = p
 				// Found existing package — merge the updated target.
 				merged := make([]model.Target, 0, len(p.Targets))
 				found := false
 				for _, t := range p.Targets {
 					if t.Repo == m.Repo && t.Arch == m.Arch {
-						merged = append(merged, model.Target{Repo: m.Repo, Arch: m.Arch, State: string(newState)})
+						next := model.Target{Repo: m.Repo, Arch: m.Arch, State: string(newState)}
+						if t.State == string(newState) {
+							next.Details = t.Details
+							next.BlockedBy = t.BlockedBy
+							next.BuildReason = t.BuildReason
+							next.BuildReasonPackages = t.BuildReasonPackages
+							next.Published = t.Published
+						}
+						merged = append(merged, next)
 						found = true
 					} else {
 						merged = append(merged, t)
@@ -331,16 +341,57 @@ func (c *Consumer) mergePackageTarget(m mqMessage, newState model.RollupState) *
 	}
 
 	return &model.Package{
-		Project:      m.Project,
-		Name:         m.Package,
-		Tags:         obs.ProjectTags(c.root, m.Project),
-		RollupState:  worst,
-		OKTargets:    okCount,
-		TotalTargets: len(targets),
-		Trigger:      trigger,
-		Targets:      targets,
-		UpdatedAt:    time.Now().UTC(),
+		Project:       m.Project,
+		Name:          m.Package,
+		Tags:          packageTags(c.root, m.Project, existingPkg),
+		RollupState:   worst,
+		OKTargets:     okCount,
+		TotalTargets:  len(targets),
+		IsContainer:   existingContainer(existingPkg),
+		Version:       existingVersion(existingPkg),
+		ContainerTags: existingContainerTags(existingPkg),
+		Trigger:       trigger,
+		Targets:       targets,
+		UpdatedAt:     time.Now().UTC(),
 	}
+}
+
+func packageTags(root, project string, existing *model.Package) []string {
+	tags := obs.ProjectTags(root, project)
+	if existing == nil {
+		return tags
+	}
+	seen := make(map[string]bool, len(tags)+len(existing.Tags))
+	for _, tag := range tags {
+		seen[tag] = true
+	}
+	for _, tag := range existing.Tags {
+		if !seen[tag] {
+			tags = append(tags, tag)
+		}
+	}
+	return tags
+}
+
+func existingContainer(existing *model.Package) *bool {
+	if existing == nil {
+		return nil
+	}
+	return existing.IsContainer
+}
+
+func existingVersion(existing *model.Package) string {
+	if existing == nil {
+		return ""
+	}
+	return existing.Version
+}
+
+func existingContainerTags(existing *model.Package) []string {
+	if existing == nil {
+		return nil
+	}
+	return existing.ContainerTags
 }
 
 func isPackageBuildEvent(key string) bool {
@@ -359,4 +410,3 @@ func mqStateToRollup(key string) model.RollupState {
 		return model.RollupSucceeded
 	}
 }
-

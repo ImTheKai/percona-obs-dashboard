@@ -17,6 +17,7 @@ export interface PackageRow {
   published: boolean
   repo: RepoInfo
   arch: string
+  binariesAvailable: boolean
 }
 
 export interface ContainerImage {
@@ -60,7 +61,9 @@ export function useArtifacts(
     const arch = toValue(artArch)
     const prefix = toValue(contextPrefix)
 
-    if (!repo) return []
+    const releaseRepo: RepoInfo = { obs: 'release', name: 'Release', type: 'rpm' }
+    const isReleaseContext = prefix.includes(':releases')
+    if (!repo && !isReleaseContext) return []
 
     const exactProject = `${prefix}:${ver}`
     const rows: PackageRow[] = []
@@ -74,6 +77,22 @@ export function useArtifacts(
         pkg.project.startsWith(exactProject + ':')
       if (!inProject || pkg.is_container === true) continue
 
+      if (isReleaseContext && (pkg.targets?.length ?? 0) === 0) {
+        rows.push({
+          project: pkg.project,
+          name: pkg.name,
+          version: pkg.version ?? '',
+          tags: pkg.tags ?? [],
+          state: pkg.rollup_state ?? '',
+          published: pkg.rollup_state === 'succeeded' || pkg.rollup_state === 'published',
+          repo: repo ?? releaseRepo,
+          arch: '',
+          binariesAvailable: false,
+        })
+        continue
+      }
+
+      if (!repo) continue
       const target = pkg.targets?.find(
         (t: Target) => t.repo === repo.obs && t.arch === arch,
       )
@@ -88,6 +107,7 @@ export function useArtifacts(
         published: target.published === true,
         repo,
         arch,
+        binariesAvailable: true,
       })
     }
     return rows
