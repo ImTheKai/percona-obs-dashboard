@@ -9,3 +9,10 @@ services:
     environment:
       FRONTEND_DIR: /frontend
     restart: unless-stopped
+    networks:
+      - pg_projects
+
+networks:
+  pg_projects:
+    name: pg_projects
+
