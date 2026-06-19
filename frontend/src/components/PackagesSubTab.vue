@@ -231,6 +231,7 @@ function stateClass(state: string): string {
               <code class="pkg-name">{{ row.name }}</code>
               <code v-if="row.version" class="pkg-version">{{ row.version }}</code>
               <span v-if="row.builtAt" class="pkg-built-at">{{ formatArtifactTime(row.builtAt) }}</span>
+              <span v-if="row.isRebuilding" class="status-badge status-rebuilding">Rebuilding</span>
               <span class="status-badge" :class="row.published ? 'status-published' : stateClass(row.state)">
                 {{ row.published ? 'Published' : stateLabel(row.state) }}
               </span>
@@ -582,6 +583,11 @@ function stateClass(state: string): string {
 }
 
 .status-building {
+  background: #fef9c3;
+  color: #a16207;
+}
+
+.status-rebuilding {
   background: #fef9c3;
   color: #a16207;
 }

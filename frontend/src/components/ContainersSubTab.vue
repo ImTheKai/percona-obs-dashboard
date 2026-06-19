@@ -97,6 +97,7 @@ function formatArtifactTime(value?: string): string {
             <div v-if="image.builtAt" class="built-section">
               <div class="section-label">BUILT</div>
               <span class="built-time">{{ formatArtifactTime(image.builtAt) }}</span>
+              <span v-if="image.isRebuilding" class="status-badge building">Rebuilding</span>
             </div>
 
             <!-- Tags -->

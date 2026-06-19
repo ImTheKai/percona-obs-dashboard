@@ -38,6 +38,7 @@ import { ref, computed, watch, onMounted } from 'vue'
 import type { Context, PRGroup } from '../types/api'
 import type { ArtifactBinary, ContainerImage, PackageRow, RepoInfo } from '../composables/useArtifacts'
 import { useArtifacts } from '../composables/useArtifacts'
+import { useArtifactMetadata } from '../composables/useArtifactMetadata'
 import ArtifactsVersionBar from './ArtifactsVersionBar.vue'
 import PackagesSubTab from './PackagesSubTab.vue'
 import ContainersSubTab from './ContainersSubTab.vue'
@@ -236,8 +237,14 @@ const { packageRows: livePackageRows, containerImages: liveContainerImages } = u
   contextPrefix,
 )
 
+const { enrichedPackageRows, enrichedContainerImages } = useArtifactMetadata(
+  livePackageRows,
+  liveContainerImages,
+  computed(() => !isReleaseContext.value),
+)
+
 const packageRows = computed<PackageRow[]>(() => {
-  if (!isReleaseContext.value) return livePackageRows.value
+  if (!isReleaseContext.value) return enrichedPackageRows.value
   const repo = selectedRepo.value
   if (!repo || !releaseArtifacts.value) return []
   return releaseArtifacts.value.packages
@@ -258,10 +265,11 @@ const packageRows = computed<PackageRow[]>(() => {
 })
 
 const containerImages = computed<ContainerImage[]>(() => {
-  if (!isReleaseContext.value) return liveContainerImages.value
+  if (!isReleaseContext.value) return enrichedContainerImages.value
   if (!releaseArtifacts.value) return []
   return releaseArtifacts.value.container_images.map(img => ({
     id: `${img.project}/${img.image_name}`,
+    project: img.project,
     imageName: img.image_name,
     baseOs: img.base_os,
     registry: img.registry,
