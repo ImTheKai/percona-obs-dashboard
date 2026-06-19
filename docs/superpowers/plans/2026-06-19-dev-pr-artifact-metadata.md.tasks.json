@@ -4,7 +4,7 @@
     {
       "id": 28,
       "subject": "Task 1: Backend POST /api/artifacts/metadata endpoint",
-      "status": "pending",
+      "status": "completed",
       "description": "**Goal:** Implement the metadata endpoint with a per-project binary-list cache and register it in the router.\n\n**Files:**\n- Create: `backend/internal/api/artifact_metadata.go`\n- Create: `backend/internal/api/artifact_metadata_test.go`\n- Modify: `backend/internal/api/server.go`\n\n**Acceptance Criteria:**\n- [ ] `POST /api/artifacts/metadata` returns 400 for an empty `items` array.\n- [ ] Package items return only distributable binaries; `built_at` reflects the max mtime of those binaries.\n- [ ] Container items return `built_at` from the `.containerinfo` binary with the highest mtime; no `binaries` field.\n- [ ] Two items from the same project result in a single `ProjectBinaryList` call (cache hit on second call).\n- [ ] `go test ./backend/internal/api/... -run TestArtifactMetadata` passes.\n\n**Verify:** `cd backend && go test ./internal/api/... -run TestArtifactMetadata -v` → all tests PASS\n\n```json:metadata\n{\"files\": [\"backend/internal/api/artifact_metadata.go\", \"backend/internal/api/artifact_metadata_test.go\", \"backend/internal/api/server.go\"], \"verifyCommand\": \"cd backend && go test ./internal/api/... -run TestArtifactMetadata -v\", \"acceptanceCriteria\": [\"POST /api/artifacts/metadata returns 400 for empty items\", \"Package items return only distributable binaries with max-mtime built_at\", \"Container items return built_at from .containerinfo max mtime, no binaries field\", \"Same project called twice results in one ProjectBinaryList call\"], \"modelTier\": \"standard\"}\n```"
     },
     {

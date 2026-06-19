@@ -1,0 +1,20 @@
+[
+  {
+    "id": 38,
+    "subject": "Task 1: `distroGroup` utility and distro-brand sidebar sections",
+    "status": "completed",
+    "lastUpdated": "2026-06-19T00:00:00Z"
+  },
+  {
+    "id": 39,
+    "subject": "Task 2: Loading spinner for packages fetch",
+    "status": "completed",
+    "lastUpdated": "2026-06-19T00:00:00Z"
+  },
+  {
+    "id": 40,
+    "subject": "Task 3: Hide binary-less rows; grey out non-succeeded rows",
+    "status": "completed",
+    "lastUpdated": "2026-06-19T00:00:00Z"
+  }
+]
