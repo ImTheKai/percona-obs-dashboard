@@ -24,7 +24,6 @@ export interface PackageRow {
   published: boolean
   repo: RepoInfo
   arch: string
-  binariesAvailable: boolean
   binaries?: ArtifactBinary[]
   builtAt?: string
   mtime?: number
@@ -113,7 +112,6 @@ export function useArtifacts(
         published: target.published === true,
         repo,
         arch,
-        binariesAvailable: true,
       })
     }
     return rows

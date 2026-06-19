@@ -261,7 +261,6 @@ const packageRows = computed<PackageRow[]>(() => {
       published: true,
       repo: { obs: pkg.repo, name: pkg.repo_name, type: pkg.repo_type as 'rpm' | 'deb' },
       arch: pkg.arch,
-      binariesAvailable: pkg.binaries.length > 0,
       binaries: pkg.binaries,
       builtAt: pkg.built_at,
     }))
