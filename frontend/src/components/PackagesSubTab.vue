@@ -39,7 +39,7 @@ const otherRepos = computed(() =>
   props.repos.filter(r => distroGroup(r) === 'Other')
     .sort((a, b) => a.name.localeCompare(b.name, undefined, { numeric: true }))
 )
-const showPackageList = computed(() => props.selectedRepo !== null || props.packageRows.length > 0)
+const showPackageList = computed(() => props.selectedRepo !== null || props.packageRows.length > 0 || !!props.loading)
 
 // ----- snippet -----
 
