@@ -1,0 +1,96 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+jobs:
+  backend-test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: backend/go.mod
+
+      - name: Run backend tests
+        working-directory: backend
+        run: go test ./...
+
+  docker-dev:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Seed .env from example
+        run: cp .env.example .env
+
+      - name: Populate secrets in .env
+        run: |
+          echo "OBS_USERNAME=${{ secrets.OBS_USERNAME }}" >> .env
+          echo "OBS_PASSWORD=${{ secrets.OBS_PASSWORD }}" >> .env
+
+      - name: Build dev stack and start backend
+        run: docker compose up -d --build backend
+
+      - name: Wait for backend to respond
+        run: |
+          for i in $(seq 1 30); do
+            if docker compose exec -T backend wget -qO- http://localhost:4000/api/stream --spider 2>/dev/null || \
+               docker compose exec -T backend wget -qO- http://localhost:4000/ 2>/dev/null; then
+              echo "Backend responded after ${i} attempts"
+              exit 0
+            fi
+            sleep 2
+          done
+          echo "Backend did not respond within timeout"
+          docker compose ps
+          docker compose logs backend
+          exit 1
+
+      - name: Tear down dev stack
+        if: always()
+        run: docker compose down -v
+
+  docker-prod:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Seed .env from example
+        run: cp .env.example .env
+
+      - name: Populate secrets in .env
+        run: |
+          echo "OBS_USERNAME=${{ secrets.OBS_USERNAME }}" >> .env
+          echo "OBS_PASSWORD=${{ secrets.OBS_PASSWORD }}" >> .env
+
+      - name: Build prod image and start app
+        run: docker compose -f docker-compose.prod.yml up -d --build
+
+      - name: Wait for prod app to respond
+        run: |
+          for i in $(seq 1 60); do
+            if curl -fsS -o /dev/null http://localhost:4000/; then
+              echo "Prod app responded after ${i} attempts"
+              exit 0
+            fi
+            sleep 2
+          done
+          echo "Prod app did not respond within timeout"
+          docker compose -f docker-compose.prod.yml ps
+          docker compose -f docker-compose.prod.yml logs app
+          exit 1
+
+      - name: Tear down prod stack
+        if: always()
+        run: docker compose -f docker-compose.prod.yml down -v

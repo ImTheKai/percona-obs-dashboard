@@ -1,0 +1,27 @@
+version: '3'
+
+tasks:
+  dev:
+    desc: Start the development stack (hot reload)
+    cmds:
+      - docker compose up --build
+
+  redeploy:
+    desc: Rebuild and restart the production stack (run on the server)
+    cmds:
+      - docker compose -f docker-compose.prod.yml up -d --build
+
+  prod-logs:
+    desc: Tail production logs
+    cmds:
+      - docker compose -f docker-compose.prod.yml logs -f
+
+  down:
+    desc: Stop the development stack
+    cmds:
+      - docker compose down
+
+  down-prod:
+    desc: Stop the production stack
+    cmds:
+      - docker compose -f docker-compose.prod.yml down

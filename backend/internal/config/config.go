@@ -60,7 +60,7 @@ func Load() (*Config, error) {
 	v.SetDefault("poller.interval", "2m")
 	v.SetDefault("store.db_path", "/data/obsboard.db")
 	v.SetDefault("store.event_retention", "7d")
-	v.SetDefault("server.http_port", 8080)
+	v.SetDefault("server.http_port", 4000)
 	v.SetDefault("server.frontend_dir", "")
 	v.SetDefault("worker_pool.size", 5)
 	v.SetDefault("worker_pool.poll_interval", "30s")
