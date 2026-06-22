@@ -6,6 +6,7 @@ import HealthHeader from './components/HealthHeader.vue'
 import MainGrid from './components/MainGrid.vue'
 import ArtifactsPanel from './components/ArtifactsPanel.vue'
 import type { Context } from './types/api'
+import { PPG_CONTEXT } from './lib/contexts'
 import { usePackages } from './composables/usePackages'
 import { useEvents } from './composables/useEvents'
 import { usePRPackages } from './composables/usePRPackages'
@@ -25,12 +26,7 @@ function toggleTheme() {
 }
 
 // Context
-const DEFAULT_CONTEXT: Context = {
-  label: 'PPG',
-  apiBase: '/api/products/ppg',
-  prefix: 'isv:percona:ppg',
-}
-const selectedContext = ref<Context>(DEFAULT_CONTEXT)
+const selectedContext = ref<Context>(PPG_CONTEXT)
 const selectedPrefix = computed(() => selectedContext.value.prefix)
 const prefixDepth = computed(() => selectedContext.value.prefix.split(':').length)
 
@@ -106,7 +102,7 @@ const contexts = computed<Context[]>(() => {
     return nb - na
   })
 
-  return [DEFAULT_CONTEXT, ...prContexts]
+  return [PPG_CONTEXT, ...prContexts]
 })
 
 const filteredPackages = computed(() => filterByTags(activeTags.value))

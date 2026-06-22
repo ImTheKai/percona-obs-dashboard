@@ -40,6 +40,7 @@ import type { Context, PRGroup } from '../types/api'
 import type { ArtifactBinary, ContainerImage, PackageRow, RepoInfo } from '../composables/useArtifacts'
 import { useArtifacts } from '../composables/useArtifacts'
 import { useArtifactMetadata } from '../composables/useArtifactMetadata'
+import { PPG_CONTEXT, RELEASES_CONTEXT } from '../lib/contexts'
 import ArtifactsVersionBar from './ArtifactsVersionBar.vue'
 import PackagesSubTab from './PackagesSubTab.vue'
 import ContainersSubTab from './ContainersSubTab.vue'
@@ -47,19 +48,6 @@ import ContainersSubTab from './ContainersSubTab.vue'
 const props = defineProps<{
   prGroups: PRGroup[]
 }>()
-
-// Fixed contexts
-const PPG_CONTEXT: Context = {
-  label: 'PPG',
-  apiBase: '/api/products/ppg',
-  prefix: 'isv:percona:ppg',
-}
-
-const RELEASES_CONTEXT: Context = {
-  label: 'Releases',
-  apiBase: '/api/releases/ppg',
-  prefix: 'isv:percona:ppg:releases',
-}
 
 // Derive PR contexts from prGroups
 const artifactsContexts = computed<Context[]>(() => {
