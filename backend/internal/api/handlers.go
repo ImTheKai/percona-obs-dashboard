@@ -408,6 +408,10 @@ func worstRollup(pkgs []*model.Package) model.RollupState {
 // Decodes {"project","repo","arch","package"} JSON body and triggers an OBS rebuild.
 func rebuildHandler(obsClient *obs.Client) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
+		if obsClient == nil {
+			http.Error(w, "OBS client not configured", http.StatusServiceUnavailable)
+			return
+		}
 		var body struct {
 			Project string `json:"project"`
 			Repo    string `json:"repo"`
@@ -427,6 +431,8 @@ func rebuildHandler(obsClient *obs.Client) http.HandlerFunc {
 			return
 		}
 		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(map[string]string{"status": "ok"})
+		if err := json.NewEncoder(w).Encode(map[string]string{"status": "ok"}); err != nil {
+			return
+		}
 	}
 }

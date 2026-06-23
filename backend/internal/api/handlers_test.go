@@ -325,3 +325,17 @@ func TestRebuildHandler_OBSError(t *testing.T) {
 		t.Fatalf("expected 502, got %d: %s", rec.Code, rec.Body.String())
 	}
 }
+
+func TestRebuildHandler_InvalidJSON(t *testing.T) {
+	obsClient := obs.NewClient("http://example.com", "user", "pass")
+	handler := rebuildHandler(obsClient)
+
+	req := httptest.NewRequest(http.MethodPost, "/api/rebuild", strings.NewReader("not-json"))
+	req.Header.Set("Content-Type", "application/json")
+	rec := httptest.NewRecorder()
+	handler.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusBadRequest {
+		t.Fatalf("expected 400 for invalid JSON, got %d", rec.Code)
+	}
+}
