@@ -111,8 +111,8 @@ function buildReasonText(t: Target): string {
 function stateDetailLabel(t: Target): string {
   if (t.state === 'blocked') return 'WAITING FOR'
   if (t.state === 'finished') return 'BUILD OUTCOME'
-  if (t.state === 'unresolvable') return 'UNRESOLVABLE'
-  if (t.state === 'broken') return 'BROKEN'
+  if (t.state === 'unresolvable') return 'BUILD REASON'
+  if (t.state === 'broken') return 'BUILD REASON'
   return ''
 }
 
