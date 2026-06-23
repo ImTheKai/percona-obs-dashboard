@@ -8,6 +8,64 @@ import (
 	"github.com/percona/obs-dashboard/internal/model"
 )
 
+func TestPreservePublishedAcrossTransientStateChange(t *testing.T) {
+	// A target that was succeeded+published briefly goes to blocked (dependency
+	// waiting), then is succeeded again by the time the next poller tick runs.
+	// Published must be preserved so the worker does not fire a spurious succeeded
+	// event for a package that never actually rebuilt.
+	prev := &model.Package{
+		Targets: []model.Target{
+			{Repo: "UBI_8", Arch: "aarch64", State: "succeeded", Published: true},
+		},
+	}
+	next := &model.Package{
+		Targets: []model.Target{
+			{Repo: "UBI_8", Arch: "aarch64", State: "blocked", Published: false},
+		},
+	}
+	preservePackageEnrichment(prev, next)
+	if !next.Targets[0].Published {
+		t.Error("Published should be preserved when target was succeeded+published and is now blocked")
+	}
+}
+
+func TestPreservePublishedSucceededToSucceeded(t *testing.T) {
+	// Unchanged state: Published must still carry over.
+	prev := &model.Package{
+		Targets: []model.Target{
+			{Repo: "UBI_8", Arch: "x86_64", State: "succeeded", Published: true},
+		},
+	}
+	next := &model.Package{
+		Targets: []model.Target{
+			{Repo: "UBI_8", Arch: "x86_64", State: "succeeded", Published: false},
+		},
+	}
+	preservePackageEnrichment(prev, next)
+	if !next.Targets[0].Published {
+		t.Error("Published should be preserved when state is unchanged")
+	}
+}
+
+func TestDoNotPreservePublishedWhenPrevNotPublished(t *testing.T) {
+	// Prev was not published (active build in progress) — Published must stay false
+	// so PublishStateTask can detect the new publish and fire the succeeded event.
+	prev := &model.Package{
+		Targets: []model.Target{
+			{Repo: "UBI_8", Arch: "x86_64", State: "building", Published: false},
+		},
+	}
+	next := &model.Package{
+		Targets: []model.Target{
+			{Repo: "UBI_8", Arch: "x86_64", State: "succeeded", Published: false},
+		},
+	}
+	preservePackageEnrichment(prev, next)
+	if next.Targets[0].Published {
+		t.Error("Published must not be set when previous target was not published")
+	}
+}
+
 func TestTargetsChangedDetectsDetailsChange(t *testing.T) {
 	prev := &model.Package{
 		Targets: []model.Target{

@@ -203,7 +203,19 @@ func preservePackageEnrichment(prev, next *model.Package) {
 	}
 	for i := range next.Targets {
 		prevTarget, ok := prevTargets[next.Targets[i].Repo+"/"+next.Targets[i].Arch]
-		if !ok || prevTarget.State != next.Targets[i].State {
+		if !ok {
+			continue
+		}
+		// Preserve Published unconditionally: a transient blocked (or any other
+		// intermediate) state does not remove the published artifact from the OBS
+		// repo. Without this, a brief state change resets Published=false and causes
+		// a spurious "succeeded" event when the target re-publishes without having
+		// actually rebuilt. BuildStateTask in the worker always re-derives Published
+		// from fresh OBS data, so this only affects the ProcessOnce before-snapshot.
+		if !next.Targets[i].Published && prevTarget.Published {
+			next.Targets[i].Published = true
+		}
+		if prevTarget.State != next.Targets[i].State {
 			continue
 		}
 		if next.Targets[i].Details == "" {
@@ -217,9 +229,6 @@ func preservePackageEnrichment(prev, next *model.Package) {
 		}
 		if len(next.Targets[i].BuildReasonPackages) == 0 {
 			next.Targets[i].BuildReasonPackages = prevTarget.BuildReasonPackages
-		}
-		if !next.Targets[i].Published {
-			next.Targets[i].Published = prevTarget.Published
 		}
 	}
 }
