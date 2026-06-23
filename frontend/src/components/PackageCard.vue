@@ -2,11 +2,15 @@
 import { computed, ref } from 'vue'
 import type { Package, Target } from '../types/api'
 import { displayVersion, TAG_LABEL } from '../composables/useEventDisplay'
+import { useRebuild } from '../composables/useRebuild'
 
 const props = defineProps<{ pkg: Package }>()
 
+const { trigger: triggerRebuild, isLoading: isRebuildLoading, errorFor: rebuildErrorFor } = useRebuild()
+
 const SKIP_STATES = new Set(['disabled', 'excluded', 'locked'])
 const IN_PROGRESS_STATES = new Set(['scheduled', 'building', 'finished'])
+const REBUILD_STATES = new Set(['failed', 'broken', 'unresolvable', 'blocked'])
 
 const STATE_COLOR: Record<string, string> = {
   succeeded: 'var(--ok)',
@@ -245,6 +249,25 @@ function logUrl(repo: string, arch: string): string {
               style="font-size: 10.5px; color: var(--brand-purple); font-weight: 700; flex-shrink: 0; text-decoration: none;"
               @click.stop
             >log ↗</a>
+            <button
+              v-if="REBUILD_STATES.has(t.state)"
+              :disabled="isRebuildLoading(t.repo, t.arch)"
+              :style="{
+                background: 'none',
+                border: 'none',
+                cursor: isRebuildLoading(t.repo, t.arch) ? 'default' : 'pointer',
+                padding: '0 2px',
+                fontSize: '13px',
+                color: 'var(--text-muted)',
+                flexShrink: '0',
+                lineHeight: '1',
+              }"
+              title="Retrigger build"
+              aria-label="Retrigger build"
+              @click.stop="triggerRebuild(pkg.project, pkg.name, t.repo, t.arch)"
+            >
+              <span :class="{ 'rebuild-spinning': isRebuildLoading(t.repo, t.arch) }">↺</span>
+            </button>
             <span
               v-if="hasDetail(t)"
               style="font-size: 10px; color: var(--text-muted); flex-shrink: 0; width: 12px; text-align: center;"
@@ -266,6 +289,17 @@ function logUrl(repo: string, arch: string): string {
               <span :style="{ fontFamily: 'var(--font-mono)', fontSize: '10.5px', color: stateDetailColor(t), fontWeight: '600', lineHeight: '1.4' }">{{ stateDetailValue(t) }}</span>
             </div>
           </div>
+
+          <!-- Rebuild error -->
+          <div
+            v-if="rebuildErrorFor(t.repo, t.arch)"
+            :style="{
+              padding: '3px 9px 6px',
+              fontSize: '10.5px',
+              color: 'var(--fail)',
+              fontFamily: 'var(--font-mono)',
+            }"
+          >{{ rebuildErrorFor(t.repo, t.arch) }}</div>
         </div>
 
         <button
@@ -285,3 +319,18 @@ function logUrl(repo: string, arch: string): string {
     <div style="font-size: 11px; color: var(--text-muted);">{{ pkg.ok_targets }}/{{ pkg.total_targets }} targets ok</div>
   </div>
 </template>
+
+<style scoped>
+@keyframes rebuild-spin {
+  to { transform: rotate(360deg); }
+}
+.rebuild-spinning {
+  display: inline-block;
+  animation: rebuild-spin 0.7s linear infinite;
+}
+button:focus-visible {
+  outline: 2px solid var(--brand-purple);
+  outline-offset: 2px;
+  border-radius: 2px;
+}
+</style>

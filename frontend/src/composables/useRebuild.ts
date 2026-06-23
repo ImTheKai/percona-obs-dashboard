@@ -3,11 +3,11 @@ import { ref, onUnmounted } from 'vue'
 export function useRebuild() {
   const loadingMap = ref(new Map<string, boolean>())
   const errorMap = ref(new Map<string, string>())
-  const timers = new Set<ReturnType<typeof setTimeout>>()
+  const timerMap = new Map<string, ReturnType<typeof setTimeout>>()
 
   onUnmounted(() => {
-    timers.forEach(clearTimeout)
-    timers.clear()
+    timerMap.forEach(clearTimeout)
+    timerMap.clear()
   })
 
   function key(repo: string, arch: string): string {
@@ -15,13 +15,15 @@ export function useRebuild() {
   }
 
   function scheduleErrorClear(k: string) {
+    const prev = timerMap.get(k)
+    if (prev !== undefined) clearTimeout(prev)
     const t = setTimeout(() => {
       const m = new Map(errorMap.value)
       m.delete(k)
       errorMap.value = m
-      timers.delete(t)
+      timerMap.delete(k)
     }, 4000)
-    timers.add(t)
+    timerMap.set(k, t)
   }
 
   async function trigger(project: string, pkg: string, repo: string, arch: string): Promise<void> {
@@ -38,7 +40,13 @@ export function useRebuild() {
         body: JSON.stringify({ project, repo, arch, package: pkg }),
       })
       if (!res.ok) {
-        const msg = (await res.text()).trim() || `HTTP ${res.status}`
+        let msg = `HTTP ${res.status}`
+        try {
+          const text = (await res.text()).trim()
+          if (text) msg = text
+        } catch {
+          // body read failed; keep the HTTP status message
+        }
         const m = new Map(errorMap.value)
         m.set(k, msg)
         errorMap.value = m
