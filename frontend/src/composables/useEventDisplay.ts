@@ -54,7 +54,13 @@ export function timeStr(iso: string): string {
 }
 
 export function showReason(event: Event): boolean {
-  return (event.type === 'build_started' || event.type === 'failed') && !!event.why
+  return (
+    event.type === 'build_started' ||
+    event.type === 'failed' ||
+    event.type === 'blocked' ||
+    event.type === 'unresolvable' ||
+    event.type === 'broken'
+  ) && !!event.why
 }
 
 // Returns the formatted version string for display, or null if unavailable.
