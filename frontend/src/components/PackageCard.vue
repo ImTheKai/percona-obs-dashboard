@@ -190,7 +190,7 @@ function logUrl(repo: string, arch: string): string {
       <a :href="obsUrl" target="_blank" rel="noopener" :style="{ marginLeft: stateAge ? '0' : 'auto', fontSize: '11.5px', fontWeight: '700', color: 'var(--brand-purple)', textDecoration: 'none', whiteSpace: 'nowrap', flexShrink: '0' }">OBS ↗</a>
     </div>
 
-    <!-- Row 2: scope tag + version badge + project path -->
+    <!-- Row 2: scope tags + version badge -->
     <div style="display: flex; align-items: center; gap: 7px;">
       <span
         v-for="tag in (pkg.tags ?? [])" :key="tag"
@@ -211,10 +211,14 @@ function logUrl(repo: string, arch: string): string {
           flexShrink: '0',
         }"
       >{{ versionLabel }}</span>
+    </div>
+
+    <!-- Row 3: project path -->
+    <div style="display: flex;">
       <code style="font-family: var(--font-mono); font-size: 10.5px; color: var(--text-muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">{{ pkg.project }}</code>
     </div>
 
-    <!-- Row 3: failing targets -->
+    <!-- Row 4: failing targets -->
     <div v-if="failingTargets.length > 0" style="display: flex; flex-direction: column; gap: 6px;">
       <span style="font-size: 10.5px; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.05em;">
         {{ failingTargets.length }} active target{{ failingTargets.length !== 1 ? 's' : '' }}
