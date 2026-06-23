@@ -96,7 +96,7 @@ func (p *Pool) ProcessOnce(ctx context.Context, pkg *model.Package) {
 
 	if !pkg.IsRelease {
 		p.hub.Notify(hubpkg.PackageUpdate(pkg))
-		p.emitBuildEvents(pkg, oldTargets)
+		p.emitBuildEvents(pkg, oldTargets, now)
 	}
 
 	if pkg.RollupState == model.RollupPublished && pkg.IsContainer != nil {
@@ -109,13 +109,11 @@ const obsBase = "https://build.opensuse.org"
 // emitBuildEvents compares oldTargets with pkg.Targets and appends one event
 // per target for each meaningful state transition, implementing a per-target
 // build event state machine.
-func (p *Pool) emitBuildEvents(pkg *model.Package, oldTargets []model.Target) {
+func (p *Pool) emitBuildEvents(pkg *model.Package, oldTargets []model.Target, now time.Time) {
 	oldByKey := make(map[string]model.Target, len(oldTargets))
 	for _, t := range oldTargets {
 		oldByKey[t.Repo+"/"+t.Arch] = t
 	}
-
-	now := time.Now().UTC()
 
 	for _, t := range pkg.Targets {
 		key := t.Repo + "/" + t.Arch
@@ -209,7 +207,7 @@ func (p *Pool) emitBuildEvents(pkg *model.Package, oldTargets []model.Target) {
 			})
 		}
 
-		// failed: only the terminal "failed" state; why is scaffolded for future use.
+		// failed: terminal state — OBS's unambiguous build failure, no BuildReason required.
 		if old.State != "failed" && t.State == "failed" {
 			p.appendEvent(&model.Event{
 				ID:      "evt_" + ulid.Make().String(),
