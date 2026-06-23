@@ -3,12 +3,10 @@ package obs
 import (
 	"context"
 	"database/sql"
-	"fmt"
 	"log/slog"
 	"strings"
 	"time"
 
-	"github.com/oklog/ulid/v2"
 	hubpkg "github.com/percona/obs-dashboard/internal/hub"
 	"github.com/percona/obs-dashboard/internal/model"
 	"github.com/percona/obs-dashboard/internal/store"
@@ -99,7 +97,7 @@ func (p *Poller) tick(ctx context.Context) {
 			// Preserve published state: OBS build results only return "succeeded",
 			// never "published". Without this guard the poller would flip a published
 			// package back to succeeded every tick, causing a succeeded↔published
-			// oscillation and a flood of stateChangeEvents.
+			// oscillation and spurious SSE broadcasts.
 			if prev != nil && prev.RollupState == model.RollupPublished &&
 				pkg.RollupState == model.RollupSucceeded && !targetsChanged(prev, pkg) {
 				pkg.RollupState = model.RollupPublished
@@ -116,14 +114,6 @@ func (p *Poller) tick(ctx context.Context) {
 					}
 					p.hub.Notify(hubpkg.PackageUpdate(pkg))
 					p.ws.Add(pkg)
-					if rollupChanged && !isTransientRollup(pkg.RollupState) {
-						evt := stateChangeEvent(pkg, prev)
-						if err := store.AppendEvent(p.db, evt); err != nil {
-							slog.Error("poller: append event", "err", err)
-						} else {
-							p.hub.Notify(hubpkg.NewEvent(evt))
-						}
-					}
 				}
 			} else {
 				// Release project: upsert silently — no SSE broadcast, no events.
@@ -337,30 +327,3 @@ func buildPackage(project, name string, tags []string, targets []PackageBuildSta
 	}
 }
 
-// isTransientRollup returns true for in-progress states that are not final
-// outcomes. The worker emits per-target events (build_started, succeeded,
-// failed, published) that cover these transitions; a package-level event for
-// a transient state would be noise and uses an undefined EventType string.
-func isTransientRollup(s model.RollupState) bool {
-	return s == model.RollupBuilding || s == model.RollupFinished || s == model.RollupScheduled
-}
-
-func stateChangeEvent(pkg *model.Package, prev *model.Package) *model.Event {
-	evtType := model.EventType(string(pkg.RollupState))
-	what := fmt.Sprintf("%s %s", pkg.Name, string(pkg.RollupState))
-	why := "first observed"
-	if prev != nil {
-		why = fmt.Sprintf("state changed from %s", string(prev.RollupState))
-	}
-	return &model.Event{
-		ID:      "evt_" + ulid.Make().String(),
-		Type:    evtType,
-		Tags:    pkg.Tags,
-		Project: pkg.Project,
-		Package: pkg.Name,
-		What:    what,
-		Why:     why,
-		URL:     fmt.Sprintf("https://build.opensuse.org/package/show/%s/%s", pkg.Project, pkg.Name),
-		At:      pkg.UpdatedAt,
-	}
-}
