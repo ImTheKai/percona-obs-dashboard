@@ -119,8 +119,12 @@ func (p *Pool) emitBuildEvents(pkg *model.Package, oldTargets []model.Target, no
 		key := t.Repo + "/" + t.Arch
 		old := oldByKey[key]
 
-		// build_started: BuildReason newly appeared, regardless of target state.
-		if old.BuildReason == "" && t.BuildReason != "" {
+		// build_started: BuildReason newly appeared, or target re-builds after failure.
+		// The second condition handles rebuilds where OBS reuses the same BuildReason,
+		// so old.BuildReason is non-empty but a new build cycle has clearly started.
+		isNewBuildCycle := (old.BuildReason == "" && t.BuildReason != "") ||
+			(old.State == "failed" && t.State != "failed" && t.BuildReason != "")
+		if isNewBuildCycle {
 			why := t.BuildReason
 			if len(t.BuildReasonPackages) > 0 {
 				why += ": " + strings.Join(t.BuildReasonPackages, ", ")
