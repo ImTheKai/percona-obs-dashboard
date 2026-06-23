@@ -52,7 +52,9 @@ func (p *Pool) run(ctx context.Context) {
 			if !ok {
 				return
 			}
+			key := pkg.Project + "/" + pkg.Name
 			p.ProcessOnce(ctx, pkg)
+			p.ws.Done(key)
 		}
 	}
 }

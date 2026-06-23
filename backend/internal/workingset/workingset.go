@@ -9,14 +9,16 @@ import (
 )
 
 type WorkingSet struct {
-	mu       sync.RWMutex
+	mu       sync.Mutex
 	packages map[string]*model.Package
+	inflight map[string]bool
 	dispatch chan *model.Package
 }
 
 func New(queueSize int) *WorkingSet {
 	return &WorkingSet{
 		packages: make(map[string]*model.Package),
+		inflight: make(map[string]bool),
 		dispatch: make(chan *model.Package, queueSize),
 	}
 }
@@ -37,7 +39,7 @@ func (ws *WorkingSet) Add(pkg *model.Package) {
 		return
 	}
 	ws.packages[key] = pkg
-	ws.send(pkg)
+	ws.send(key, pkg)
 }
 
 func (ws *WorkingSet) Signal(pkg *model.Package) {
@@ -45,13 +47,22 @@ func (ws *WorkingSet) Signal(pkg *model.Package) {
 	ws.mu.Lock()
 	defer ws.mu.Unlock()
 	ws.packages[key] = pkg
-	ws.send(pkg)
+	ws.send(key, pkg)
 }
 
 func (ws *WorkingSet) Remove(key string) {
 	ws.mu.Lock()
 	defer ws.mu.Unlock()
 	delete(ws.packages, key)
+	delete(ws.inflight, key)
+}
+
+// Done marks a package as no longer in-flight, allowing the scheduler to
+// re-dispatch it on the next tick.
+func (ws *WorkingSet) Done(key string) {
+	ws.mu.Lock()
+	defer ws.mu.Unlock()
+	delete(ws.inflight, key)
 }
 
 func (ws *WorkingSet) Dispatch() <-chan *model.Package {
@@ -67,20 +78,26 @@ func (ws *WorkingSet) StartScheduler(ctx context.Context, interval time.Duration
 			case <-ctx.Done():
 				return
 			case <-ticker.C:
-				ws.mu.RLock()
-				for _, p := range ws.packages {
-					ws.send(p)
+				ws.mu.Lock()
+				for key, p := range ws.packages {
+					ws.send(key, p)
 				}
-				ws.mu.RUnlock()
+				ws.mu.Unlock()
 			}
 		}
 	}()
 }
 
-// send attempts a non-blocking send. Must be called with ws.mu held (read or write).
-func (ws *WorkingSet) send(pkg *model.Package) {
+// send attempts a non-blocking enqueue. Drops the send if the package is
+// already in-flight (being processed by a worker) or if the channel is full.
+// Must be called with ws.mu held.
+func (ws *WorkingSet) send(key string, pkg *model.Package) {
+	if ws.inflight[key] {
+		return
+	}
 	select {
 	case ws.dispatch <- pkg:
+		ws.inflight[key] = true
 	default:
 	}
 }

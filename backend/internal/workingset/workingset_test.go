@@ -39,18 +39,32 @@ func TestAddExistingPackageIsNoop(t *testing.T) {
 	}
 }
 
-func TestSignalAlwaysDispatches(t *testing.T) {
+func TestSignalDispatchesAfterDone(t *testing.T) {
 	ws := workingset.New(10)
 	ws.Add(pkg("proj", "pkg-a", model.RollupFailed))
-	<-ws.Dispatch() // drain Add dispatch
-	ws.Signal(pkg("proj", "pkg-a", model.RollupFailed)) // already in set — should still dispatch
+	<-ws.Dispatch()               // drain Add dispatch (package is now in-flight)
+	ws.Done("proj/pkg-a")         // simulate worker completion
+	ws.Signal(pkg("proj", "pkg-a", model.RollupBuilding)) // should dispatch now
 	select {
 	case p := <-ws.Dispatch():
 		if p.Name != "pkg-a" {
 			t.Errorf("unexpected package %s", p.Name)
 		}
 	case <-time.After(100 * time.Millisecond):
-		t.Fatal("Signal did not dispatch for existing package")
+		t.Fatal("Signal did not dispatch after Done")
+	}
+}
+
+func TestSignalSkippedWhileInFlight(t *testing.T) {
+	ws := workingset.New(10)
+	ws.Add(pkg("proj", "pkg-a", model.RollupFailed))
+	<-ws.Dispatch() // drain — package is in-flight, no Done called
+	ws.Signal(pkg("proj", "pkg-a", model.RollupBuilding))
+	select {
+	case <-ws.Dispatch():
+		t.Fatal("Signal should not dispatch while package is in-flight")
+	case <-time.After(50 * time.Millisecond):
+		// correct — dispatch suppressed
 	}
 }
 
