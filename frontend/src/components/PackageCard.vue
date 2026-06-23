@@ -111,8 +111,8 @@ function buildReasonText(t: Target): string {
 function stateDetailLabel(t: Target): string {
   if (t.state === 'blocked') return 'WAITING FOR'
   if (t.state === 'finished') return 'BUILD OUTCOME'
-  if (t.state === 'unresolvable') return 'BUILD REASON'
-  if (t.state === 'broken') return 'BUILD REASON'
+  if (t.state === 'unresolvable') return 'UNRESOLVABLE'
+  if (t.state === 'broken') return 'BROKEN'
   return ''
 }
 
@@ -280,9 +280,9 @@ function logUrl(repo: string, arch: string): string {
             style="padding: 0 9px 8px calc(9px + 8px + 9px); display: flex; flex-direction: column; gap: 5px;"
           >
             <hr style="border: none; border-top: 1px solid var(--border); margin: 0 0 3px;" />
-            <div v-if="buildReasonText(t)" style="display: flex; flex-direction: column; gap: 1px;">
+            <div v-if="buildReasonText(t) || t.state === 'unresolvable' || t.state === 'broken'" style="display: flex; flex-direction: column; gap: 1px;">
               <span style="font-size: 9px; text-transform: uppercase; letter-spacing: 0.07em; color: var(--text-muted); font-weight: 700;">Build reason</span>
-              <span style="font-family: var(--font-mono); font-size: 10.5px; color: var(--text-secondary); line-height: 1.4;">{{ buildReasonText(t) }}</span>
+              <span style="font-family: var(--font-mono); font-size: 10.5px; color: var(--text-secondary); line-height: 1.4;">{{ buildReasonText(t) || '—' }}</span>
             </div>
             <div v-if="stateDetailValue(t)" style="display: flex; flex-direction: column; gap: 1px;">
               <span style="font-size: 9px; text-transform: uppercase; letter-spacing: 0.07em; color: var(--text-muted); font-weight: 700;">{{ stateDetailLabel(t) }}</span>
