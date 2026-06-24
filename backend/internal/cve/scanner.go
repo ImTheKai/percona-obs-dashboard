@@ -209,6 +209,7 @@ func (s *Scanner) runTrivy(ctx context.Context, imageRef, platform, arch string)
 	s.trivyMu.Lock()
 	out, err := s.execFn(ctx, "trivy",
 		"image",
+		"--image-src", "remote",
 		"--platform", "linux/"+platform,
 		"--severity", "HIGH,CRITICAL",
 		"--ignore-unfixed",
