@@ -1,6 +1,6 @@
 import { computed, toValue } from 'vue'
 import type { MaybeRef } from 'vue'
-import type { Package, Target } from '../types/api'
+import type { Package, Target, CveScan } from '../types/api'
 
 export interface RepoInfo {
   obs: string
@@ -43,6 +43,7 @@ export interface ContainerImage {
   mtime?: number
   builtAt?: string
   isRebuilding?: boolean
+  cveScans: CveScan[]
 }
 
 export function deriveBaseOs(project: string): string {
@@ -150,6 +151,7 @@ export function useArtifacts(
           pullCmd,
           rollupState: pkg.rollup_state ?? '',
           published,
+          cveScans: pkg.cve_scans ?? [],
         }
       })
   })

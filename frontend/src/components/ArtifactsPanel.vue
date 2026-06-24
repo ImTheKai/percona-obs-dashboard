@@ -250,6 +250,7 @@ const containerImages = computed<ContainerImage[]>(() => {
     published: true,
     mtime: img.mtime,
     builtAt: img.built_at,
+    cveScans: [],
   }))
 })
 

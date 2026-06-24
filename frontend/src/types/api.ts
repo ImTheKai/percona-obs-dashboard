@@ -1,5 +1,5 @@
 export type BuildState = 'succeeded' | 'failed' | 'unresolvable' | 'broken' | 'blocked' | 'scheduled' | 'building' | 'finished' | 'published'
-export type EventType = 'triggered' | 'started' | 'succeeded' | 'failed' | 'unresolvable' | 'broken' | 'blocked' | 'published' | 'created' | 'deleted' | 'build_started' | 'build_finished' | 'version_change' | 'updated'
+export type EventType = 'triggered' | 'started' | 'succeeded' | 'failed' | 'unresolvable' | 'broken' | 'blocked' | 'published' | 'created' | 'deleted' | 'build_started' | 'build_finished' | 'version_change' | 'updated' | 'cve_scan_started' | 'cve_scan_finished'
 
 export interface Context {
   label: string
@@ -24,6 +24,24 @@ export interface Target {
   published?: boolean
 }
 
+export interface CveFinding {
+  id: string
+  pkg: string
+  installed: string
+  fixed: string
+  severity: 'HIGH' | 'CRITICAL'
+  title: string
+}
+
+export interface CveScan {
+  arch: string
+  image_ref: string
+  scanned_at: string
+  critical_count: number
+  high_count: number
+  findings: CveFinding[]
+}
+
 export interface Package {
   project: string
   name: string
@@ -39,6 +57,7 @@ export interface Package {
   updated_at: string // ISO 8601
   state_changed_at?: string // ISO 8601; absent when NULL
   container_tags?: string[]
+  cve_scans?: CveScan[]
 }
 
 export interface PRGroup {

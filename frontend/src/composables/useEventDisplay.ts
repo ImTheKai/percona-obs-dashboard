@@ -4,7 +4,7 @@ export const GLYPH: Record<EventType, string> = {
   succeeded: '✓', failed: '✗', broken: '✗', unresolvable: '⚠',
   blocked: '⊘', published: '↑', triggered: '↻', started: '▶',
   created: '+', deleted: '−', build_started: '▶', build_finished: '■',
-  version_change: '↕', updated: '◉',
+  version_change: '↕', updated: '◉', cve_scan_started: '🛡', cve_scan_finished: '🛡',
 }
 
 export const GLYPH_COLOR: Record<EventType, string> = {
@@ -13,6 +13,7 @@ export const GLYPH_COLOR: Record<EventType, string> = {
   published: 'var(--brand-purple)', triggered: 'var(--blocked)', started: 'var(--blocked)',
   created: 'var(--ok)', deleted: 'var(--fail)', build_started: 'var(--info)',
   build_finished: 'var(--blocked)', version_change: 'var(--blocked)', updated: 'var(--blocked)',
+  cve_scan_started: 'var(--info)', cve_scan_finished: 'var(--brand-purple)',
 }
 
 export const GLYPH_BG: Record<EventType, string> = {
@@ -21,6 +22,7 @@ export const GLYPH_BG: Record<EventType, string> = {
   published: 'var(--brand-purple-tint)', triggered: 'var(--blocked-tint)', started: 'var(--blocked-tint)',
   created: 'var(--ok-tint)', deleted: 'var(--fail-tint)', build_started: 'var(--info-tint)',
   build_finished: 'var(--blocked-tint)', version_change: 'var(--blocked-tint)', updated: 'var(--blocked-tint)',
+  cve_scan_started: 'var(--info-tint)', cve_scan_finished: 'var(--brand-purple-tint)',
 }
 
 export const TAG_STYLE: Record<string, string> = {
@@ -56,6 +58,7 @@ export function timeStr(iso: string): string {
 export function showReason(event: Event): boolean {
   return (
     event.type === 'build_started' ||
+    event.type === 'cve_scan_finished' ||
     event.type === 'failed' ||
     event.type === 'blocked' ||
     event.type === 'unresolvable' ||
