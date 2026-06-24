@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/oklog/ulid/v2"
+	"github.com/percona/obs-dashboard/internal/cve"
 	hubpkg "github.com/percona/obs-dashboard/internal/hub"
 	"github.com/percona/obs-dashboard/internal/model"
 	"github.com/percona/obs-dashboard/internal/obs"
@@ -30,11 +31,12 @@ type Pool struct {
 	db           *sql.DB
 	hub          *hubpkg.Hub
 	ws           *workingset.WorkingSet
+	scanner      *cve.Scanner
 }
 
-func NewPool(size int, devTasks, releaseTasks []Task, client *obs.Client, db *sql.DB, hub *hubpkg.Hub, ws *workingset.WorkingSet) *Pool {
+func NewPool(size int, devTasks, releaseTasks []Task, client *obs.Client, db *sql.DB, hub *hubpkg.Hub, ws *workingset.WorkingSet, scanner *cve.Scanner) *Pool {
 	return &Pool{size: size, devTasks: devTasks, releaseTasks: releaseTasks,
-		client: client, db: db, hub: hub, ws: ws}
+		client: client, db: db, hub: hub, ws: ws, scanner: scanner}
 }
 
 func (p *Pool) Start(ctx context.Context) {
@@ -68,6 +70,9 @@ func (p *Pool) ProcessOnce(ctx context.Context, pkg *model.Package) {
 	// was observed, not when the (potentially slow) task chain finished.
 	now := time.Now().UTC()
 
+	// Snapshot rollup state before tasks run so we can detect the transition.
+	prevRollupState := pkg.RollupState
+
 	// Snapshot target state before task chain.
 	// BuildReasonPackages is a slice field — deep copy to avoid aliasing.
 	oldTargets := make([]model.Target, len(pkg.Targets))
@@ -99,6 +104,21 @@ func (p *Pool) ProcessOnce(ctx context.Context, pkg *model.Package) {
 	if !pkg.IsRelease {
 		p.hub.Notify(hubpkg.PackageUpdate(pkg))
 		p.emitBuildEvents(pkg, oldTargets, now)
+
+		if p.scanner != nil &&
+			pkg.IsContainer != nil && *pkg.IsContainer &&
+			pkg.RollupState == model.RollupPublished &&
+			prevRollupState != model.RollupPublished &&
+			len(pkg.ContainerTags) > 0 {
+			p.scanner.Enqueue(cve.ScanRequest{
+				Project:    pkg.Project,
+				Package:    pkg.Name,
+				Tags:       pkg.Tags,
+				ImageBase:  cve.ImageBase(pkg.Project, pkg.Name),
+				PrimaryTag: pkg.ContainerTags[0],
+				Targets:    cve.SucceededTargets(pkg.Targets),
+			})
+		}
 	}
 
 	if pkg.RollupState == model.RollupPublished && pkg.IsContainer != nil {

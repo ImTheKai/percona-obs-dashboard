@@ -13,6 +13,7 @@ import (
 
 	"github.com/percona/obs-dashboard/internal/api"
 	"github.com/percona/obs-dashboard/internal/config"
+	"github.com/percona/obs-dashboard/internal/cve"
 	"github.com/percona/obs-dashboard/internal/hub"
 	"github.com/percona/obs-dashboard/internal/mq"
 	"github.com/percona/obs-dashboard/internal/obs"
@@ -46,6 +47,12 @@ func run() error {
 	obsClient := obs.NewClient(cfg.OBS.BaseURL, cfg.OBS.Username, cfg.OBS.Password)
 	h := hub.New()
 
+	scanner := cve.NewScanner(db, h, 2)
+	scanner.Start(ctx)
+
+	nightlySched := cve.NewNightlyScheduler(db, scanner)
+	go nightlySched.Run(ctx)
+
 	activePkgs, err := store.GetActivePackages(db)
 	if err != nil {
 		return fmt.Errorf("seed working set: %w", err)
@@ -66,7 +73,7 @@ func run() error {
 		obs.PackageTypeTask{},
 		obs.BinariesCheckTask{},
 	}
-	pool := worker.NewPool(cfg.WorkerPool.Size, devTasks, releaseTasks, obsClient, db, h, ws)
+	pool := worker.NewPool(cfg.WorkerPool.Size, devTasks, releaseTasks, obsClient, db, h, ws, scanner)
 	pool.Start(ctx)
 	ws.StartScheduler(ctx, cfg.WorkerPool.PollInterval)
 
