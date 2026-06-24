@@ -41,6 +41,8 @@ func (n *NightlyScheduler) enqueueUnscanned(ctx context.Context) {
 		slog.Error("cve scheduler: query published containers", "err", err)
 		return
 	}
+	slog.Info("cve scheduler: bootstrap scan", "published_containers", len(pkgs))
+	queued := 0
 	for _, pkg := range pkgs {
 		if ctx.Err() != nil {
 			return
@@ -54,7 +56,9 @@ func (n *NightlyScheduler) enqueueUnscanned(ctx context.Context) {
 			continue
 		}
 		n.scanner.Enqueue(packageToRequest(pkg))
+		queued++
 	}
+	slog.Info("cve scheduler: bootstrap enqueued", "queued", queued, "already_scanned", len(pkgs)-queued)
 }
 
 func (n *NightlyScheduler) enqueueAll(ctx context.Context) {

@@ -143,6 +143,7 @@ func (s *Scanner) scanPackage(ctx context.Context, req ScanRequest) {
 			At:      time.Now().UTC(),
 		})
 
+		slog.Info("cve: scanning", "pkg", req.Package, "arch", target.Arch, "image", imageRef)
 		scan, err := s.runTrivy(ctx, imageRef, platform, target.Arch)
 		if err != nil {
 			slog.Warn("cve: trivy failed", "pkg", req.Package, "arch", target.Arch, "err", err)
@@ -158,6 +159,7 @@ func (s *Scanner) scanPackage(ctx context.Context, req ScanRequest) {
 		if scan.CriticalCount > 0 || scan.HighCount > 0 {
 			why = fmt.Sprintf("CRITICAL: %d, HIGH: %d", scan.CriticalCount, scan.HighCount)
 		}
+		slog.Info("cve: scan complete", "pkg", req.Package, "arch", target.Arch, "critical", scan.CriticalCount, "high", scan.HighCount)
 		s.appendEvent(&model.Event{
 			ID:      "evt_" + ulid.Make().String(),
 			Type:    model.EventCVEScanFinished,
