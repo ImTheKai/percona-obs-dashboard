@@ -4,6 +4,7 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
+	"log/slog"
 	"net/http"
 	"sort"
 	"strconv"
@@ -26,6 +27,10 @@ func packagesHandler(db *sql.DB, root string) http.HandlerFunc {
 		if err != nil {
 			http.Error(w, "internal server error", http.StatusInternalServerError)
 			return
+		}
+
+		if err := store.AttachCveScans(db, pkgs); err != nil {
+			slog.Warn("api: attach cve scans", "err", err)
 		}
 
 		w.Header().Set("Content-Type", "application/json")
@@ -109,6 +114,10 @@ func prContextPackagesHandler(db *sql.DB, root string) http.HandlerFunc {
 		if err != nil {
 			http.Error(w, "internal server error", http.StatusInternalServerError)
 			return
+		}
+
+		if err := store.AttachCveScans(db, pkgs); err != nil {
+			slog.Warn("api: attach cve scans", "err", err)
 		}
 
 		w.Header().Set("Content-Type", "application/json")
@@ -269,6 +278,11 @@ func releasesPackagesHandler(db *sql.DB, root string) http.HandlerFunc {
 			http.Error(w, "internal server error", http.StatusInternalServerError)
 			return
 		}
+
+		if err := store.AttachCveScans(db, pkgs); err != nil {
+			slog.Warn("api: attach cve scans", "err", err)
+		}
+
 		w.Header().Set("Content-Type", "application/json")
 		if err := json.NewEncoder(w).Encode(pkgs); err != nil {
 			return
