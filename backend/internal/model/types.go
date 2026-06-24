@@ -47,6 +47,24 @@ type Target struct {
 	Published           bool     `json:"published,omitempty"`
 }
 
+type CveFinding struct {
+	ID               string `json:"id"`
+	PkgName          string `json:"pkg"`
+	InstalledVersion string `json:"installed"`
+	FixedVersion     string `json:"fixed"`
+	Severity         string `json:"severity"`
+	Title            string `json:"title"`
+}
+
+type CveScan struct {
+	Arch          string       `json:"arch"`
+	ImageRef      string       `json:"image_ref"`
+	ScannedAt     time.Time    `json:"scanned_at"`
+	CriticalCount int          `json:"critical_count"`
+	HighCount     int          `json:"high_count"`
+	Findings      []CveFinding `json:"findings"`
+}
+
 type Trigger struct {
 	What string    `json:"what"`
 	Kind string    `json:"kind"`
@@ -68,25 +86,28 @@ type Package struct {
 	Targets        []Target    `json:"targets"`
 	UpdatedAt      time.Time   `json:"updated_at"`
 	StateChangedAt *time.Time  `json:"state_changed_at,omitempty"`
+	CveScans       []CveScan   `json:"cve_scans,omitempty"`
 }
 
 type EventType string
 
 const (
-	EventTriggered     EventType = "triggered"
-	EventStarted       EventType = "started"
-	EventSucceeded     EventType = "succeeded"
-	EventFailed        EventType = "failed"
-	EventUnresolvable  EventType = "unresolvable"
-	EventBroken        EventType = "broken"
-	EventBlocked       EventType = "blocked"
-	EventPublished     EventType = "published"
-	EventCreated       EventType = "created"
-	EventDeleted       EventType = "deleted"
-	EventBuildStarted  EventType = "build_started"
-	EventBuildFinished EventType = "build_finished"
-	EventVersionChange EventType = "version_change"
-	EventUpdated       EventType = "updated"
+	EventTriggered       EventType = "triggered"
+	EventStarted         EventType = "started"
+	EventSucceeded       EventType = "succeeded"
+	EventFailed          EventType = "failed"
+	EventUnresolvable    EventType = "unresolvable"
+	EventBroken          EventType = "broken"
+	EventBlocked         EventType = "blocked"
+	EventPublished       EventType = "published"
+	EventCreated         EventType = "created"
+	EventDeleted         EventType = "deleted"
+	EventBuildStarted    EventType = "build_started"
+	EventBuildFinished   EventType = "build_finished"
+	EventVersionChange   EventType = "version_change"
+	EventUpdated         EventType = "updated"
+	EventCVEScanStarted  EventType = "cve_scan_started"
+	EventCVEScanFinished EventType = "cve_scan_finished"
 )
 
 type Event struct {
