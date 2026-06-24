@@ -1,0 +1,120 @@
+package cve_test
+
+import (
+	"context"
+	"testing"
+	"time"
+
+	"github.com/percona/obs-dashboard/internal/cve"
+	"github.com/percona/obs-dashboard/internal/hub"
+	"github.com/percona/obs-dashboard/internal/model"
+	"github.com/percona/obs-dashboard/internal/store"
+)
+
+const trivyCleanJSON = `{"SchemaVersion":2,"Results":[]}`
+const trivyVulnJSON = `{"SchemaVersion":2,"Results":[{"Vulnerabilities":[
+	{"VulnerabilityID":"CVE-2024-1","PkgName":"libssl3","InstalledVersion":"3.1.0","FixedVersion":"3.1.1","Severity":"CRITICAL","Title":"overflow"},
+	{"VulnerabilityID":"CVE-2024-2","PkgName":"libz","InstalledVersion":"1.2.11","FixedVersion":"1.2.12","Severity":"HIGH","Title":"zlib bug"}
+]}]}`
+
+func TestImageBase(t *testing.T) {
+	got := cve.ImageBase("isv:percona:ppg:17:containers:ubi9", "percona-distribution-postgresql")
+	want := "registry.opensuse.org/isv/percona/ppg/17/containers/ubi9/images/percona-distribution-postgresql"
+	if got != want {
+		t.Errorf("got %q, want %q", got, want)
+	}
+}
+
+func TestSucceededTargets(t *testing.T) {
+	targets := []model.Target{
+		{Arch: "x86_64", State: "succeeded"},
+		{Arch: "aarch64", State: "building"},
+		{Arch: "s390x", State: "succeeded"},
+	}
+	got := cve.SucceededTargets(targets)
+	if len(got) != 2 {
+		t.Errorf("expected 2, got %d", len(got))
+	}
+}
+
+func TestScannerEnqueueDropsWhenFull(t *testing.T) {
+	db, err := store.Open(":memory:")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer db.Close()
+	h := hub.New()
+
+	blocked := make(chan struct{})
+	s := cve.NewScanner(db, h, 1, cve.WithExecFn(func(ctx context.Context, name string, args ...string) ([]byte, error) {
+		<-blocked
+		return []byte(trivyCleanJSON), nil
+	}))
+	s.Start(context.Background())
+
+	req := cve.ScanRequest{
+		Project: "p", Package: "pkg", ImageBase: "reg/img", PrimaryTag: "1.0",
+		Targets: []model.Target{{Repo: "images", Arch: "x86_64", State: "succeeded"}},
+	}
+	for i := 0; i < 102; i++ {
+		s.Enqueue(req)
+	}
+	close(blocked)
+}
+
+func TestScannerParsesTrivyVulns(t *testing.T) {
+	db, err := store.Open(":memory:")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer db.Close()
+	h := hub.New()
+
+	s := cve.NewScanner(db, h, 1, cve.WithExecFn(func(ctx context.Context, name string, args ...string) ([]byte, error) {
+		return []byte(trivyVulnJSON), nil
+	}))
+	s.Start(context.Background())
+
+	req := cve.ScanRequest{
+		Project: "proj", Package: "mypkg", ImageBase: "reg/img", PrimaryTag: "1.0",
+		Targets: []model.Target{{Repo: "images", Arch: "x86_64", State: "succeeded"}},
+	}
+	s.Enqueue(req)
+
+	// Give the worker time to process.
+	time.Sleep(300 * time.Millisecond)
+
+	scans, err := store.QueryCveScans(db, "proj", "mypkg")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(scans) != 1 {
+		t.Fatalf("expected 1 scan, got %d", len(scans))
+	}
+	if scans[0].CriticalCount != 1 || scans[0].HighCount != 1 {
+		t.Errorf("wrong counts: critical=%d high=%d", scans[0].CriticalCount, scans[0].HighCount)
+	}
+}
+
+func TestWithEnqueueFn(t *testing.T) {
+	db, _ := store.Open(":memory:")
+	defer db.Close()
+	h := hub.New()
+
+	received := make(chan cve.ScanRequest, 1)
+	s := cve.NewScanner(db, h, 0, cve.WithEnqueueFn(func(r cve.ScanRequest) {
+		received <- r
+	}))
+
+	req := cve.ScanRequest{Project: "p", Package: "pkg"}
+	s.Enqueue(req)
+
+	select {
+	case got := <-received:
+		if got.Package != "pkg" {
+			t.Errorf("expected pkg, got %q", got.Package)
+		}
+	case <-time.After(100 * time.Millisecond):
+		t.Fatal("enqueueFn was not called")
+	}
+}
