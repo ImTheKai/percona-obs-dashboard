@@ -108,6 +108,7 @@ const (
 	EventUpdated         EventType = "updated"
 	EventCVEScanStarted  EventType = "cve_scan_started"
 	EventCVEScanFinished EventType = "cve_scan_finished"
+	EventCVEScanFailed   EventType = "cve_scan_failed"
 )
 
 type Event struct {

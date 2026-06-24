@@ -148,6 +148,19 @@ func (s *Scanner) scanPackage(ctx context.Context, req ScanRequest) {
 		scan, err := s.runTrivy(ctx, imageRef, platform, target.Arch)
 		if err != nil {
 			slog.Warn("cve: trivy failed", "pkg", req.Package, "arch", target.Arch, "err", err)
+			s.appendEvent(&model.Event{
+				ID:      "evt_" + ulid.Make().String(),
+				Type:    model.EventCVEScanFailed,
+				Tags:    req.Tags,
+				Project: req.Project,
+				Package: req.Package,
+				Repo:    target.Repo,
+				Arch:    target.Arch,
+				What:    "CVE scan failed",
+				Why:     err.Error(),
+				URL:     fmt.Sprintf("%s/package/show/%s/%s", obsBase, req.Project, req.Package),
+				At:      time.Now().UTC(),
+			})
 			continue
 		}
 
