@@ -12,7 +12,8 @@ const failCount = computed(() => props.packages.filter(p => p.rollup_state === '
 const brokenCount = computed(() => props.packages.filter(p => p.rollup_state === 'broken').length)
 const unresolvedCount = computed(() => props.packages.filter(p => p.rollup_state === 'unresolvable').length)
 const blockedCount = computed(() => props.packages.filter(p => p.rollup_state === 'blocked').length)
-const buildingCount = computed(() => props.packages.filter(p => p.rollup_state === 'building' || p.rollup_state === 'finished').length)
+const buildingCount = computed(() => props.packages.filter(p => p.rollup_state === 'building').length)
+const finishingCount = computed(() => props.packages.filter(p => p.rollup_state === 'finished').length)
 const attentionCount = computed(() => total.value - okCount.value)
 const progressWidth = computed(() => total.value > 0 ? Math.round((okCount.value / total.value) * 100) : 0)
 const allGreen = computed(() => total.value > 0 && okCount.value === total.value)
@@ -27,7 +28,8 @@ const breakdown = computed(() => {
   if (failCount.value > 0) items.push({ count: failCount.value, label: 'failed', color: 'var(--fail)', bg: 'var(--fail-tint)' })
   if (unresolvedCount.value > 0) items.push({ count: unresolvedCount.value, label: 'unresolvable', color: 'var(--fail)', bg: 'var(--fail-tint)' })
   if (blockedCount.value > 0) items.push({ count: blockedCount.value, label: 'blocked', color: 'var(--blocked)', bg: 'var(--blocked-tint)' })
-  if (buildingCount.value > 0) items.push({ count: buildingCount.value, label: 'building/finishing', color: 'var(--info)', bg: 'var(--info-tint)' })
+  if (buildingCount.value > 0) items.push({ count: buildingCount.value, label: 'building', color: 'var(--info)', bg: 'var(--info-tint)' })
+  if (finishingCount.value > 0) items.push({ count: finishingCount.value, label: 'finishing', color: 'var(--warn)', bg: 'var(--warn-tint)' })
   return items
 })
 </script>
