@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"log/slog"
 	"os/exec"
@@ -194,7 +195,17 @@ func (s *Scanner) runTrivy(ctx context.Context, imageRef, platform, arch string)
 		imageRef,
 	)
 	if err != nil {
-		return model.CveScan{}, fmt.Errorf("trivy: %w", err)
+		// Exit code 2 means trivy found vulnerabilities — treat as success.
+		var exitErr *exec.ExitError
+		if errors.As(err, &exitErr) && exitErr.ExitCode() == 2 {
+			return parseTrivyOutput(out, imageRef, arch)
+		}
+		// Include stderr in the error so failures show the actual trivy message.
+		stderr := ""
+		if exitErr != nil && len(exitErr.Stderr) > 0 {
+			stderr = ": " + strings.TrimSpace(string(exitErr.Stderr))
+		}
+		return model.CveScan{}, fmt.Errorf("trivy: %w%s", err, stderr)
 	}
 	return parseTrivyOutput(out, imageRef, arch)
 }
