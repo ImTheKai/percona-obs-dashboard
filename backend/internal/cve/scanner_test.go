@@ -50,7 +50,9 @@ func TestScannerEnqueueDropsWhenFull(t *testing.T) {
 		<-blocked
 		return []byte(trivyCleanJSON), nil
 	}))
-	s.Start(context.Background())
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	s.Start(ctx)
 
 	req := cve.ScanRequest{
 		Project: "p", Package: "pkg", ImageBase: "reg/img", PrimaryTag: "1.0",
@@ -70,10 +72,14 @@ func TestScannerParsesTrivyVulns(t *testing.T) {
 	defer db.Close()
 	h := hub.New()
 
+	execDone := make(chan struct{})
 	s := cve.NewScanner(db, h, 1, cve.WithExecFn(func(ctx context.Context, name string, args ...string) ([]byte, error) {
+		defer close(execDone)
 		return []byte(trivyVulnJSON), nil
 	}))
-	s.Start(context.Background())
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	s.Start(ctx)
 
 	req := cve.ScanRequest{
 		Project: "proj", Package: "mypkg", ImageBase: "reg/img", PrimaryTag: "1.0",
@@ -81,8 +87,13 @@ func TestScannerParsesTrivyVulns(t *testing.T) {
 	}
 	s.Enqueue(req)
 
-	// Give the worker time to process.
-	time.Sleep(300 * time.Millisecond)
+	select {
+	case <-execDone:
+	case <-time.After(2 * time.Second):
+		t.Fatal("worker did not finish trivy exec in time")
+	}
+	// Give the worker a moment to complete upsert after exec returns.
+	time.Sleep(50 * time.Millisecond)
 
 	scans, err := store.QueryCveScans(db, "proj", "mypkg")
 	if err != nil {
