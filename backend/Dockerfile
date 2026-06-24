@@ -5,7 +5,7 @@ RUN go mod download
 COPY . .
 RUN CGO_ENABLED=0 go build -o /obsboard ./cmd/obsboard
 
-FROM aquasecurity/trivy:latest AS trivy
+FROM ghcr.io/aquasecurity/trivy:latest AS trivy
 
 FROM alpine:3.20
 RUN apk add --no-cache ca-certificates

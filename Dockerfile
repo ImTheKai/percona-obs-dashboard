@@ -15,7 +15,7 @@ COPY backend/ .
 RUN CGO_ENABLED=0 go build -o /obsboard ./cmd/obsboard
 
 # Stage 3: minimal runtime image
-FROM aquasecurity/trivy:latest AS trivy
+FROM ghcr.io/aquasecurity/trivy:latest AS trivy
 
 FROM alpine:3.20
 RUN apk add --no-cache ca-certificates
