@@ -13,7 +13,7 @@ export const GLYPH_COLOR: Record<EventType, string> = {
   published: 'var(--brand-purple)', triggered: 'var(--blocked)', started: 'var(--blocked)',
   created: 'var(--ok)', deleted: 'var(--fail)', build_started: 'var(--info)',
   build_finished: 'var(--blocked)', version_change: 'var(--blocked)', updated: 'var(--blocked)',
-  cve_scan_started: 'var(--info)', cve_scan_finished: 'var(--brand-purple)', cve_scan_failed: 'var(--fail)',
+  cve_scan_started: 'var(--warn)', cve_scan_finished: 'var(--warn)', cve_scan_failed: 'var(--fail)',
 }
 
 export const GLYPH_BG: Record<EventType, string> = {
@@ -22,7 +22,7 @@ export const GLYPH_BG: Record<EventType, string> = {
   published: 'var(--brand-purple-tint)', triggered: 'var(--blocked-tint)', started: 'var(--blocked-tint)',
   created: 'var(--ok-tint)', deleted: 'var(--fail-tint)', build_started: 'var(--info-tint)',
   build_finished: 'var(--blocked-tint)', version_change: 'var(--blocked-tint)', updated: 'var(--blocked-tint)',
-  cve_scan_started: 'var(--info-tint)', cve_scan_finished: 'var(--brand-purple-tint)', cve_scan_failed: 'var(--fail-tint)',
+  cve_scan_started: 'var(--warn-tint)', cve_scan_finished: 'var(--warn-tint)', cve_scan_failed: 'var(--fail-tint)',
 }
 
 export const TAG_STYLE: Record<string, string> = {
