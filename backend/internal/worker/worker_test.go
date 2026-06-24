@@ -67,7 +67,7 @@ func TestPoolRunsTasksForDispatchedPackage(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	p := worker.NewPool(2, []worker.Task{capture}, nil, nil, db, h, ws)
+	p := worker.NewPool(2, []worker.Task{capture}, nil, nil, db, h, ws, nil)
 	p.Start(ctx)
 
 	pkg := &model.Package{
@@ -102,7 +102,7 @@ func TestPoolRemovesSucceededPackageFromWorkingSet(t *testing.T) {
 
 	ctx, cancel := context.WithCancel(context.Background())
 
-	p := worker.NewPool(1, []worker.Task{publishedTask{}}, nil, nil, db, h, ws)
+	p := worker.NewPool(1, []worker.Task{publishedTask{}}, nil, nil, db, h, ws, nil)
 	p.Start(ctx)
 
 	// IsContainer must be non-nil and RollupPublished must be set for removal.
@@ -144,7 +144,7 @@ func TestPoolDoesNotRemoveWhenUnpublished(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	p := worker.NewPool(1, []worker.Task{succeedingTask{}}, nil, nil, db, h, ws)
+	p := worker.NewPool(1, []worker.Task{succeedingTask{}}, nil, nil, db, h, ws, nil)
 	p.Start(ctx)
 
 	// Target is succeeded but NOT yet published — allTargetsPublished must
@@ -183,7 +183,7 @@ func TestPoolContinuesAfterTaskError(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	p := worker.NewPool(1, []worker.Task{errorTask{}, capture}, nil, nil, db, h, ws)
+	p := worker.NewPool(1, []worker.Task{errorTask{}, capture}, nil, nil, db, h, ws, nil)
 	p.Start(ctx)
 
 	pkg := &model.Package{
@@ -288,7 +288,7 @@ func TestProcessOnceEmitsBuildStarted(t *testing.T) {
 		t.Fatalf("seed: %v", err)
 	}
 
-	pool := worker.NewPool(0, []worker.Task{setReasonTask{"source change"}}, nil, nil, db, h, ws)
+	pool := worker.NewPool(0, []worker.Task{setReasonTask{"source change"}}, nil, nil, db, h, ws, nil)
 	pool.ProcessOnce(context.Background(), pkg)
 
 	now := time.Now().UTC()
@@ -325,7 +325,7 @@ func TestProcessOnceEmitsFailedTerminal(t *testing.T) {
 
 	pool := worker.NewPool(0, []worker.Task{
 		setStateTask{"Ubuntu_24.04", "x86_64", "failed", ""},
-	}, nil, nil, db, h, ws)
+	}, nil, nil, db, h, ws, nil)
 	pool.ProcessOnce(context.Background(), pkg)
 
 	now := time.Now().UTC()
@@ -359,7 +359,7 @@ func TestProcessOnceNoEventForBlocked(t *testing.T) {
 		}
 		pool := worker.NewPool(0, []worker.Task{
 			setStateTask{"Ubuntu_24.04", "x86_64", "blocked", ""},
-		}, nil, nil, db, h, ws)
+		}, nil, nil, db, h, ws, nil)
 		pool.ProcessOnce(context.Background(), pkg)
 
 		now := time.Now().UTC()
@@ -387,7 +387,7 @@ func TestProcessOnceNoEventForBlocked(t *testing.T) {
 		pool := worker.NewPool(0, []worker.Task{
 			setStateTask{"Ubuntu_24.04", "x86_64", "blocked", ""},
 			setTargetReasonTask{"Ubuntu_24.04", "x86_64", "source change"},
-		}, nil, nil, db, h, ws)
+		}, nil, nil, db, h, ws, nil)
 		pool.ProcessOnce(context.Background(), pkg)
 
 		now := time.Now().UTC()
@@ -428,7 +428,7 @@ func TestProcessOnceEmitsSucceededOnPublish(t *testing.T) {
 
 	pool := worker.NewPool(0, []worker.Task{
 		setPublishedTask{"Ubuntu_24.04", "x86_64"},
-	}, nil, nil, db, h, ws)
+	}, nil, nil, db, h, ws, nil)
 	pool.ProcessOnce(context.Background(), pkg)
 
 	now := time.Now().UTC()
@@ -466,7 +466,7 @@ func TestBuildStartedFiresOnBlockedState(t *testing.T) {
 	// Only build_started fires.
 	pool := worker.NewPool(0, []worker.Task{
 		setTargetReasonTask{"Ubuntu_24.04", "x86_64", "dep changed"},
-	}, nil, nil, db, h, ws)
+	}, nil, nil, db, h, ws, nil)
 	pool.ProcessOnce(context.Background(), pkg)
 
 	now := time.Now().UTC()
@@ -498,7 +498,7 @@ func TestIntermediateStateRequiresBuildReason(t *testing.T) {
 	// Transition to unresolvable with no BuildReason: must not emit any event.
 	pool := worker.NewPool(0, []worker.Task{
 		setStateTask{"Ubuntu_24.04", "x86_64", "unresolvable", "nothing provides libpq"},
-	}, nil, nil, db, h, ws)
+	}, nil, nil, db, h, ws, nil)
 	pool.ProcessOnce(context.Background(), pkg)
 
 	now := time.Now().UTC()
@@ -528,19 +528,19 @@ func TestIntermediateStatesAllFire(t *testing.T) {
 	pool1 := worker.NewPool(0, []worker.Task{
 		setStateTask{"Ubuntu_24.04", "x86_64", "blocked", ""},
 		setTargetReasonTask{"Ubuntu_24.04", "x86_64", "source change"},
-	}, nil, nil, db, h, ws)
+	}, nil, nil, db, h, ws, nil)
 	pool1.ProcessOnce(context.Background(), pkg)
 
 	// Cycle 2: unresolvable (BuildReason carried over in pkg after cycle 1).
 	pool2 := worker.NewPool(0, []worker.Task{
 		setStateTask{"Ubuntu_24.04", "x86_64", "unresolvable", "nothing provides libpq"},
-	}, nil, nil, db, h, ws)
+	}, nil, nil, db, h, ws, nil)
 	pool2.ProcessOnce(context.Background(), pkg)
 
 	// Cycle 3: broken.
 	pool3 := worker.NewPool(0, []worker.Task{
 		setStateTask{"Ubuntu_24.04", "x86_64", "broken", "patch failed"},
-	}, nil, nil, db, h, ws)
+	}, nil, nil, db, h, ws, nil)
 	pool3.ProcessOnce(context.Background(), pkg)
 
 	now := time.Now().UTC()
@@ -603,7 +603,7 @@ func TestSucceededOnPublishNotOnState(t *testing.T) {
 	// Transition State to "succeeded" but leave Published false.
 	pool := worker.NewPool(0, []worker.Task{
 		setStateTask{"Ubuntu_24.04", "x86_64", "succeeded", ""},
-	}, nil, nil, db, h, ws)
+	}, nil, nil, db, h, ws, nil)
 	pool.ProcessOnce(context.Background(), pkg)
 
 	now := time.Now().UTC()
@@ -632,7 +632,7 @@ func TestSucceededOnPublishFlip(t *testing.T) {
 
 	pool := worker.NewPool(0, []worker.Task{
 		setPublishedTask{"Ubuntu_24.04", "x86_64"},
-	}, nil, nil, db, h, ws)
+	}, nil, nil, db, h, ws, nil)
 	pool.ProcessOnce(context.Background(), pkg)
 
 	now := time.Now().UTC()
@@ -669,7 +669,7 @@ func TestPoolRoutesDevVsReleaseTasks(t *testing.T) {
 	devTasks := []worker.Task{versionTask{"dev"}}
 	releaseTasks := []worker.Task{versionTask{"release"}}
 
-	pool := worker.NewPool(0, devTasks, releaseTasks, nil, db, h, ws)
+	pool := worker.NewPool(0, devTasks, releaseTasks, nil, db, h, ws, nil)
 
 	// Dev package: devTasks should run.
 	devPkg := &model.Package{
