@@ -34,31 +34,31 @@
 
 /* ── Dark theme ── */
 [data-theme="dark"] {
-  --bg-app: #0B0912;
-  --bg-card: #181426;
-  --bg-card-2: #13101F;
-  --bg-muted: #1A1626;
-  --brand-purple: #4A9EFF;
-  --brand-purple-tint: rgba(74, 158, 255, 0.15);
-  --ok: #42C97E;
-  --ok-tint: #0D3320;
-  --fail: #FF6166;
-  --fail-tint: #3D1215;
-  --warn: #F0A52A;
-  --warn-tint: #3A2800;
-  --broken: #FF5E7A;
-  --broken-tint: #3D0E1A;
-  --blocked: #9C97A8;
-  --blocked-tint: #1E1A2A;
-  --info: #5BA0F0;
-  --info-tint: #0D1E3D;
-  --text-primary: #EDE8FD;
-  --text-secondary: #9C97A8;
-  --text-muted: #6B6680;
-  --border: rgba(255, 255, 255, 0.08);
-  --border-strong: rgba(255, 255, 255, 0.14);
-  --tech-postgres: #4A9EFF;
-  --tint-postgres: rgba(74, 158, 255, 0.15);
+  --bg-app: #11161D;
+  --bg-card: #1A222E;
+  --bg-card-2: #151B24;
+  --bg-muted: #1E2733;
+  --brand-purple: #3FAFCB;
+  --brand-purple-tint: rgba(63, 175, 203, 0.16);
+  --ok: #2DBE96;
+  --ok-tint: rgba(45, 190, 150, 0.16);
+  --fail: #E15F78;
+  --fail-tint: rgba(225, 95, 120, 0.16);
+  --warn: #DCB446;
+  --warn-tint: rgba(220, 180, 70, 0.16);
+  --broken: #C84A6A;
+  --broken-tint: rgba(200, 74, 106, 0.16);
+  --blocked: #8595A8;
+  --blocked-tint: rgba(133, 149, 168, 0.16);
+  --info: #5B93C9;
+  --info-tint: rgba(91, 147, 201, 0.16);
+  --text-primary: #E8EDF4;
+  --text-secondary: #94A2B5;
+  --text-muted: #6B7888;
+  --border: rgba(255, 255, 255, 0.09);
+  --border-strong: rgba(255, 255, 255, 0.15);
+  --tech-postgres: #3FAFCB;
+  --tint-postgres: rgba(63, 175, 203, 0.16);
 }
 
 /* ── Base ── */
