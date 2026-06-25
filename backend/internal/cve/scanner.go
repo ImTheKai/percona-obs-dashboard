@@ -120,6 +120,10 @@ func (s *Scanner) run(ctx context.Context) {
 
 func (s *Scanner) scanPackage(ctx context.Context, req ScanRequest) {
 	if req.PrimaryTag == "" || len(req.Targets) == 0 {
+		slog.Warn("cve: skipping scan, no tag or no succeeded targets",
+			"pkg", req.Project+"/"+req.Package,
+			"primary_tag", req.PrimaryTag,
+			"targets", len(req.Targets))
 		return
 	}
 	imageRef := req.ImageBase + ":" + req.PrimaryTag

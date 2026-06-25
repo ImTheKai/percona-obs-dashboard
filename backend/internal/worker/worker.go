@@ -72,6 +72,7 @@ func (p *Pool) ProcessOnce(ctx context.Context, pkg *model.Package) {
 
 	// Snapshot rollup state before tasks run so we can detect the transition.
 	prevRollupState := pkg.RollupState
+	prevContainerTagCount := len(pkg.ContainerTags)
 
 	// Snapshot target state before task chain.
 	// BuildReasonPackages is a slice field — deep copy to avoid aliasing.
@@ -106,10 +107,16 @@ func (p *Pool) ProcessOnce(ctx context.Context, pkg *model.Package) {
 		p.emitBuildEvents(pkg, oldTargets, now)
 	}
 
+	// Enqueue a CVE scan on two conditions:
+	// 1. Normal path: rollup just transitioned to published (dev containers, PR containers).
+	// 2. Release path: package was already published but container tags were just populated
+	//    for the first time (release containers arrive with tags missing; ContainerTagsTask
+	//    fills them in, which never triggers condition 1).
+	tagsJustPopulated := prevContainerTagCount == 0 && len(pkg.ContainerTags) > 0
 	if p.scanner != nil &&
 		pkg.IsContainer != nil && *pkg.IsContainer &&
 		pkg.RollupState == model.RollupPublished &&
-		prevRollupState != model.RollupPublished &&
+		(prevRollupState != model.RollupPublished || tagsJustPopulated) &&
 		len(pkg.ContainerTags) > 0 {
 		p.scanner.Enqueue(cve.ScanRequest{
 			Project:    pkg.Project,
