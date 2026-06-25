@@ -72,7 +72,7 @@ function tagStyle(_id: string, active: boolean): string {
       <!-- Version tabs: hidden when no versioned packages exist in the context -->
       <div v-if="availableVersions.length > 0" class="flex items-center gap-1.5">
         <span class="text-[11px] text-text-muted font-semibold uppercase tracking-[0.06em] mr-0.5">Version</span>
-        <div class="flex gap-0.75 bg-bg-muted p-0.75 rounded-[9px]">
+        <div class="flex gap-[3px] bg-bg-muted p-[3px] rounded-[9px]">
           <button
             v-for="v in availableVersions"
             :key="v"
