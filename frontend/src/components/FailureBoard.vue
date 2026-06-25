@@ -12,15 +12,15 @@ const attentionCount = computed(() => failingPackages.value.length)
 </script>
 
 <template>
-  <div style="display: flex; flex-direction: column; gap: 14px; min-width: 0;">
+  <div class="flex flex-col gap-[14px] min-w-0">
     <!-- Section header -->
-    <div style="display: flex; align-items: center; gap: 10px;">
-      <h2 style="margin: 0; font-size: 15px; font-weight: 700; color: var(--text-primary);">Active packages</h2>
-      <span style="font-size: 12.5px; color: var(--text-muted);">{{ attentionCount }} package{{ attentionCount !== 1 ? 's' : '' }} · sorted by severity</span>
+    <div class="flex items-center gap-[10px]">
+      <h2 class="m-0 text-[15px] font-bold text-text-primary">Active packages</h2>
+      <span class="text-[12.5px] text-text-muted">{{ attentionCount }} package{{ attentionCount !== 1 ? 's' : '' }} · sorted by severity</span>
     </div>
 
     <!-- 2-column failure grid -->
-    <div v-if="failingPackages.length > 0" style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px;">
+    <div v-if="failingPackages.length > 0" class="grid grid-cols-[repeat(2,minmax(0,1fr))] gap-[14px]">
       <PackageCard
         v-for="pkg in failingPackages"
         :key="`${pkg.project}/${pkg.name}`"
@@ -30,13 +30,13 @@ const attentionCount = computed(() => failingPackages.value.length)
     </div>
 
     <!-- All green state -->
-    <div v-if="failingPackages.length === 0 && packages.length > 0" style="background: var(--ok-tint); border: 1px solid var(--ok); border-radius: 12px; padding: 28px; display: flex; flex-direction: column; align-items: center; gap: 8px; text-align: center;">
-      <span style="font-size: 26px; color: var(--ok); font-weight: 800;">✓</span>
-      <span style="font-size: 15px; font-weight: 700; color: var(--text-primary);">All packages green</span>
+    <div v-if="failingPackages.length === 0 && packages.length > 0" class="bg-ok-tint border border-ok rounded-[12px] p-7 flex flex-col items-center gap-2 text-center">
+      <span class="text-[26px] text-ok font-black">✓</span>
+      <span class="text-[15px] font-bold text-text-primary">All packages green</span>
     </div>
 
     <!-- Empty state -->
-    <div v-if="packages.length === 0" style="text-align: center; color: var(--text-muted); padding: 32px 0; font-size: 14px;">
+    <div v-if="packages.length === 0" class="text-center text-text-muted py-8 text-sm">
       No packages found
     </div>
 
