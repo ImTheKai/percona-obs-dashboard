@@ -26,38 +26,38 @@ const isCustom = computed(() => props.windowMin === -1)
 </script>
 
 <template>
-  <div style="display: flex; flex-direction: column; gap: 9px;">
-    <div style="display: flex; align-items: center; gap: 7px; flex-wrap: wrap;">
-      <span style="font-size: 10.5px; color: var(--text-muted); font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em;">Window</span>
-      <div style="display: flex; gap: 3px; background: var(--bg-muted); padding: 3px; border-radius: 9px; flex-wrap: wrap;">
+  <div class="flex flex-col gap-[9px]">
+    <div class="flex items-center gap-[7px] flex-wrap">
+      <span class="text-[10.5px] text-text-muted font-semibold uppercase tracking-[0.05em]">Window</span>
+      <div class="flex gap-[3px] bg-bg-muted p-[3px] rounded-[9px] flex-wrap">
         <button
           v-for="p in PRESETS"
           :key="p.label"
           @click="emit('update:windowMin', p.min)"
-          :style="windowMin === p.min
-            ? 'background: var(--bg-card); color: var(--text-primary); font-weight: 700; padding: 4px 10px; border-radius: 7px; border: none; font-size: 12px; cursor: pointer; font-family: inherit;'
-            : 'background: transparent; color: var(--text-muted); font-weight: 500; padding: 4px 10px; border-radius: 7px; border: none; font-size: 12px; cursor: pointer; font-family: inherit;'"
+          :class="windowMin === p.min
+            ? 'bg-bg-card text-text-primary font-bold py-[4px] px-[10px] rounded-[7px] border-none text-[12px] cursor-pointer'
+            : 'bg-transparent text-text-muted font-medium py-[4px] px-[10px] rounded-[7px] border-none text-[12px] cursor-pointer'"
         >{{ p.label }}</button>
       </div>
     </div>
-    <div v-if="isCustom" style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap; background: var(--bg-card-2); border: 1px solid var(--border); border-radius: 10px; padding: 9px 11px;">
-      <div style="display: flex; flex-direction: column; gap: 3px;">
-        <label style="font-size: 9.5px; color: var(--text-muted); font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em;">From</label>
+    <div v-if="isCustom" class="flex items-center gap-[8px] flex-wrap bg-bg-card-2 border border-border rounded-[10px] py-[9px] px-[11px]">
+      <div class="flex flex-col gap-[3px]">
+        <label class="text-[9.5px] text-text-muted font-bold uppercase tracking-[0.05em]">From</label>
         <input
           type="date"
           :value="customFrom ?? ''"
           @change="emit('update:customFrom', ($event.target as HTMLInputElement).value)"
-          style="font-family: var(--font-mono); font-size: 12px; color: var(--text-primary); background: var(--bg-card); border: 1px solid var(--border-strong); border-radius: 7px; padding: 5px 8px;"
+          class="font-mono text-[12px] text-text-primary bg-bg-card border border-border-strong rounded-[7px] py-[5px] px-[8px]"
         />
       </div>
-      <span style="font-size: 13px; color: var(--text-muted); align-self: flex-end; padding-bottom: 6px;">→</span>
-      <div style="display: flex; flex-direction: column; gap: 3px;">
-        <label style="font-size: 9.5px; color: var(--text-muted); font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em;">To</label>
+      <span class="text-[13px] text-text-muted self-end pb-[6px]">→</span>
+      <div class="flex flex-col gap-[3px]">
+        <label class="text-[9.5px] text-text-muted font-bold uppercase tracking-[0.05em]">To</label>
         <input
           type="date"
           :value="customTo ?? ''"
           @change="emit('update:customTo', ($event.target as HTMLInputElement).value)"
-          style="font-family: var(--font-mono); font-size: 12px; color: var(--text-primary); background: var(--bg-card); border: 1px solid var(--border-strong); border-radius: 7px; padding: 5px 8px;"
+          class="font-mono text-[12px] text-text-primary bg-bg-card border border-border-strong rounded-[7px] py-[5px] px-[8px]"
         />
       </div>
     </div>

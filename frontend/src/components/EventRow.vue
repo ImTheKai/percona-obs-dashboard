@@ -14,17 +14,17 @@ const reasonCanExpand = computed(() => (props.event.why?.length ?? 0) > REASON_P
 
 <template>
   <div class="event-row">
-    <div style="display: flex; flex-direction: column; align-items: center; gap: 0; flex-shrink: 0;">
+    <div class="flex flex-col items-center gap-0 flex-shrink-0">
       <span
-        style="width: 24px; height: 24px; border-radius: 7px; display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 800;"
+        class="w-6 h-6 rounded-[7px] flex items-center justify-center text-[12px] font-black"
         :style="{ color: GLYPH_COLOR[props.event.type], background: GLYPH_BG[props.event.type] }"
       >{{ GLYPH[props.event.type] }}</span>
-      <span style="flex: 1; width: 2px; background: var(--border); margin-top: 3px; border-radius: 2px;"></span>
+      <span class="flex-1 w-[2px] bg-border mt-[3px] rounded-[2px]"></span>
     </div>
     <div class="event-content">
-      <div style="display: flex; align-items: center; gap: 8px;">
+      <div class="flex items-center gap-2">
         <span class="package-name">{{ props.event.package }}</span>
-        <span :title="props.event.at" style="margin-left: auto; font-size: 10.5px; color: var(--text-muted); font-family: var(--font-mono); white-space: nowrap; flex-shrink: 0;">{{ timeStr(props.event.at) }}</span>
+        <span :title="props.event.at" class="ml-auto text-[10.5px] text-text-muted font-mono whitespace-nowrap flex-shrink-0">{{ timeStr(props.event.at) }}</span>
       </div>
       <span class="event-title">{{ eventTitle(props.event) }}</span>
       <div v-if="showReason" class="reason-box">
@@ -33,8 +33,8 @@ const reasonCanExpand = computed(() => (props.event.why?.length ?? 0) > REASON_P
           {{ reasonExpanded ? 'Show less' : 'Show more' }}
         </button>
       </div>
-      <code v-if="props.event.repo" style="font-family: var(--font-mono); font-size: 11px; font-weight: 600; color: var(--text-secondary);">{{ props.event.repo }}/{{ props.event.arch }}</code>
-      <div style="display: flex; align-items: center; gap: 6px; flex-wrap: wrap; margin-top: 2px;">
+      <code v-if="props.event.repo" class="font-mono text-[11px] font-semibold text-text-secondary">{{ props.event.repo }}/{{ props.event.arch }}</code>
+      <div class="flex items-center gap-[6px] flex-wrap mt-[2px]">
         <span
           v-for="tag in (props.event.tags ?? [])" :key="tag"
           :style="`font-size: 9px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em; padding: 2px 6px; border-radius: 5px; ${TAG_STYLE[tag] ?? 'background: var(--blocked-tint); color: var(--blocked);'}`"
@@ -54,7 +54,7 @@ const reasonCanExpand = computed(() => (props.event.why?.length ?? 0) > REASON_P
             flexShrink: '0',
           }"
         >{{ displayVersion(props.event.version, (props.event.tags ?? []).includes('container')) }}</span>
-        <code style="font-family:var(--font-mono);font-size:10px;color:var(--text-muted);">{{ props.event.project }}</code>
+        <code class="font-mono text-[10px] text-text-muted">{{ props.event.project }}</code>
       </div>
     </div>
   </div>
@@ -62,44 +62,25 @@ const reasonCanExpand = computed(() => (props.event.why?.length ?? 0) > REASON_P
 
 <style scoped>
 .event-row {
-  display: flex;
-  gap: 11px;
-  width: 100%;
-  padding: 9px 14px;
-  border-radius: 9px;
+  @apply flex gap-[11px] w-full py-[9px] px-[14px] rounded-[9px];
   box-sizing: border-box;
 }
 
 .event-content {
-  display: flex;
-  flex: 1;
-  flex-direction: column;
-  gap: 3px;
-  min-width: 0;
-  padding-bottom: 6px;
+  @apply flex flex-1 flex-col gap-[3px] min-w-0 pb-[6px];
 }
 
 .package-name {
-  min-width: 0;
-  font-size: 12.5px;
-  font-weight: 700;
-  color: var(--text-primary);
+  @apply min-w-0 text-[12.5px] font-bold text-text-primary;
   overflow-wrap: anywhere;
 }
 
 .event-title {
-  font-size: 11.5px;
-  color: var(--text-secondary);
+  @apply text-[11.5px] text-text-secondary;
 }
 
 .reason-box {
-  color: var(--text-secondary);
-  background: var(--bg-muted, var(--blocked-tint));
-  border: 1px solid var(--border);
-  border-radius: 5px;
-  padding: 5px 7px;
-  font-family: var(--font-mono);
-  font-size: 11px;
+  @apply text-text-secondary bg-bg-muted border border-border rounded-[5px] py-[5px] px-[7px] font-mono text-[11px];
   word-break: break-word;
 }
 
@@ -118,14 +99,6 @@ const reasonCanExpand = computed(() => (props.event.why?.length ?? 0) > REASON_P
 }
 
 .reason-toggle {
-  margin-top: 4px;
-  padding: 0;
-  border: none;
-  background: transparent;
-  color: var(--brand-purple);
-  cursor: pointer;
-  font-family: inherit;
-  font-size: 10.5px;
-  font-weight: 700;
+  @apply mt-[4px] p-0 border-none bg-transparent text-brand-purple cursor-pointer text-[10.5px] font-bold;
 }
 </style>

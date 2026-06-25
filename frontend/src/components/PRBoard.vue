@@ -69,41 +69,38 @@ function prProjectUrl(pr: string): string {
 </script>
 
 <template>
-  <div v-if="groups.length > 0" style="display: flex; flex-direction: column; gap: 14px;">
+  <div v-if="groups.length > 0" class="flex flex-col gap-[14px]">
     <!-- Section header -->
-    <div style="display: flex; align-items: center; gap: 10px;">
-      <h2 style="margin: 0; font-size: 15px; font-weight: 700; color: var(--text-primary);">PR builds</h2>
-      <span style="font-size: 12.5px; color: var(--text-muted);">{{ groups.length }} pull request{{ groups.length !== 1 ? 's' : '' }}</span>
+    <div class="flex items-center gap-[10px]">
+      <h2 class="m-0 text-[15px] font-bold text-text-primary">PR builds</h2>
+      <span class="text-[12.5px] text-text-muted">{{ groups.length }} pull request{{ groups.length !== 1 ? 's' : '' }}</span>
     </div>
 
     <!-- PR group cards -->
-    <div style="display: flex; flex-direction: column; gap: 12px;">
+    <div class="flex flex-col gap-[12px]">
       <div
         v-for="group in groups"
         :key="group.pr"
+        class="flex flex-col gap-[12px] rounded-[12px] p-[15px]"
         :style="{
           background: 'var(--bg-card)',
           border: '1px solid var(--border)',
           borderLeft: `4px solid ${STATE_COLOR[group.rollup_state] ?? 'var(--text-muted)'}`,
-          borderRadius: '12px',
-          padding: '15px',
-          display: 'flex',
-          flexDirection: 'column',
-          gap: '12px',
         }"
       >
         <!-- PR header -->
-        <div style="display: flex; align-items: center; gap: 10px;">
-          <span :style="{
-            fontSize: '10.5px', fontWeight: '700', textTransform: 'uppercase',
-            letterSpacing: '0.04em', padding: '3px 9px', borderRadius: '6px',
-            color: STATE_COLOR[group.rollup_state] ?? 'var(--text-muted)',
-            background: STATE_BG[group.rollup_state] ?? 'var(--blocked-tint)',
-          }">{{ STATE_LABEL[group.rollup_state] ?? group.rollup_state }}</span>
+        <div class="flex items-center gap-[10px]">
+          <span
+            class="text-[10.5px] font-bold uppercase tracking-[0.04em] py-[3px] px-[9px] rounded-[6px]"
+            :style="{
+              color: STATE_COLOR[group.rollup_state] ?? 'var(--text-muted)',
+              background: STATE_BG[group.rollup_state] ?? 'var(--blocked-tint)',
+            }"
+          >{{ STATE_LABEL[group.rollup_state] ?? group.rollup_state }}</span>
 
-          <span style="font-size: 14px; font-weight: 700; color: var(--text-primary);">PR #{{ group.pr }}</span>
+          <span class="text-[14px] font-bold text-text-primary">PR #{{ group.pr }}</span>
 
-          <span style="font-size: 12px; color: var(--text-muted);">
+          <span class="text-[12px] text-text-muted">
             {{ group.packages.filter(p => p.rollup_state === 'succeeded').length }}/{{ group.packages.length }} packages green
           </span>
 
@@ -111,44 +108,42 @@ function prProjectUrl(pr: string): string {
             :href="prProjectUrl(group.pr)"
             target="_blank"
             rel="noopener"
-            style="margin-left: auto; font-size: 11.5px; font-weight: 700; color: var(--brand-purple); text-decoration: none; white-space: nowrap; flex-shrink: 0;"
+            class="ml-auto text-[11.5px] font-bold text-brand-purple no-underline whitespace-nowrap flex-shrink-0"
           >OBS ↗</a>
         </div>
 
         <!-- Package rows -->
-        <div style="display: flex; flex-direction: column; gap: 6px;">
+        <div class="flex flex-col gap-[6px]">
           <div
             v-for="pkg in group.packages"
             :key="`${pkg.project}/${pkg.name}`"
-            style="display: flex; align-items: center; gap: 10px; padding: 7px 10px; border-radius: 8px; background: var(--bg-card-2);"
+            class="flex items-center gap-[10px] py-[7px] px-[10px] rounded-[8px] bg-bg-card-2"
           >
             <!-- State dot -->
-            <span :style="{
-              width: '8px', height: '8px', borderRadius: '2px',
-              background: STATE_COLOR[pkg.rollup_state] ?? 'var(--text-muted)',
-              flexShrink: '0',
-            }"></span>
+            <span
+              class="w-2 h-2 rounded-[2px] flex-shrink-0"
+              :style="{ background: STATE_COLOR[pkg.rollup_state] ?? 'var(--text-muted)' }"
+            ></span>
 
             <!-- Package name -->
-            <code style="font-family: var(--font-mono); font-size: 12.5px; font-weight: 600; color: var(--text-primary);">{{ pkg.name }}</code>
+            <code class="font-mono text-[12.5px] font-semibold text-text-primary">{{ pkg.name }}</code>
 
             <!-- Subproject label -->
-            <span style="font-size: 10.5px; color: var(--text-muted); font-family: var(--font-mono);">{{ subprojectLabel(pkg.project) }}</span>
+            <span class="text-[10.5px] text-text-muted font-mono">{{ subprojectLabel(pkg.project) }}</span>
 
             <!-- State label -->
-            <span :style="{
-              marginLeft: 'auto',
-              fontSize: '10.5px', fontWeight: '700', textTransform: 'uppercase',
-              letterSpacing: '0.04em', padding: '2px 7px', borderRadius: '5px',
-              color: STATE_COLOR[pkg.rollup_state] ?? 'var(--text-muted)',
-              background: STATE_BG[pkg.rollup_state] ?? 'var(--blocked-tint)',
-              flexShrink: '0',
-            }">{{ STATE_LABEL[pkg.rollup_state] ?? pkg.rollup_state }}</span>
+            <span
+              class="ml-auto text-[10.5px] font-bold uppercase tracking-[0.04em] py-[2px] px-[7px] rounded-[5px] flex-shrink-0"
+              :style="{
+                color: STATE_COLOR[pkg.rollup_state] ?? 'var(--text-muted)',
+                background: STATE_BG[pkg.rollup_state] ?? 'var(--blocked-tint)',
+              }"
+            >{{ STATE_LABEL[pkg.rollup_state] ?? pkg.rollup_state }}</span>
 
             <!-- Active targets summary -->
             <span
               v-if="activeTargets(pkg).length > 0"
-              style="font-size: 10.5px; color: var(--text-muted); flex-shrink: 0;"
+              class="text-[10.5px] text-text-muted flex-shrink-0"
             >{{ targetSummary(pkg) }}</span>
 
             <!-- OBS link -->
@@ -156,7 +151,7 @@ function prProjectUrl(pr: string): string {
               :href="obsUrl(pkg)"
               target="_blank"
               rel="noopener"
-              style="font-size: 10.5px; font-weight: 700; color: var(--brand-purple); text-decoration: none; flex-shrink: 0;"
+              class="text-[10.5px] font-bold text-brand-purple no-underline flex-shrink-0"
             >↗</a>
           </div>
         </div>

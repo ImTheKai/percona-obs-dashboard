@@ -26,39 +26,38 @@ function packageUrl(project: string, name: string): string {
 </script>
 
 <template>
-  <div style="background: var(--bg-card); border: 1px solid var(--border); border-radius: 12px; padding: 15px; display: flex; flex-direction: column; gap: 14px;">
+  <div class="flex flex-col gap-[14px] bg-bg-card border border-border rounded-[12px] p-[15px]">
     <!-- Summary header -->
-    <div style="display: flex; align-items: center; gap: 9px;">
-      <span style="width: 10px; height: 10px; border-radius: 3px; background: var(--ok);"></span>
-      <span style="font-size: 13px; font-weight: 700; color: var(--text-primary);">All clear · {{ packages.length }} package{{ packages.length !== 1 ? 's' : '' }} fully built</span>
+    <div class="flex items-center gap-[9px]">
+      <span class="w-[10px] h-[10px] rounded-[3px] bg-ok"></span>
+      <span class="text-[13px] font-bold text-text-primary">All clear · {{ packages.length }} package{{ packages.length !== 1 ? 's' : '' }} fully built</span>
     </div>
     <!-- Per-project groups -->
     <div
       v-for="(group, index) in groups"
       :key="group.project"
-      :style="`display: flex; flex-direction: column; gap: 7px;${index > 0 ? ' border-top: 1px solid var(--border); padding-top: 10px;' : ''}`"
+      class="flex flex-col gap-[7px]"
+      :style="{ borderTop: index > 0 ? '1px solid var(--border)' : '', paddingTop: index > 0 ? '10px' : '' }"
     >
       <!-- Group header: full OBS project path linking to project page -->
       <a
         :href="projectUrl(group.project)"
         target="_blank"
         rel="noopener"
-        class="project-link"
-        style="font-family: var(--font-mono); font-size: 11px; color: var(--text-muted); text-decoration: none; display: inline-flex; align-items: center; gap: 3px;"
+        class="project-link font-mono text-[11px] text-text-muted no-underline inline-flex items-center gap-[3px]"
       >{{ group.project }} ↗</a>
       <!-- Package pills linking to individual OBS package pages -->
-      <div style="display: flex; gap: 7px; flex-wrap: wrap;">
+      <div class="flex gap-[7px] flex-wrap">
         <a
           v-for="pkg in group.pkgs"
           :key="pkg.name"
           :href="packageUrl(group.project, pkg.name)"
           target="_blank"
           rel="noopener"
-          class="pkg-pill"
-          style="display: inline-flex; align-items: center; gap: 6px; padding: 4px 10px; border-radius: 7px; background: var(--ok-tint); text-decoration: none;"
+          class="pkg-pill inline-flex items-center gap-[6px] py-[4px] px-[10px] rounded-[7px] bg-ok-tint no-underline"
         >
-          <span style="width: 6px; height: 6px; border-radius: 99px; background: var(--ok); flex-shrink: 0;"></span>
-          <code style="font-family: var(--font-mono); font-size: 11px; color: var(--text-secondary);">{{ pkg.name }}</code>
+          <span class="w-[6px] h-[6px] rounded-full bg-ok flex-shrink-0"></span>
+          <code class="font-mono text-[11px] text-text-secondary">{{ pkg.name }}</code>
         </a>
       </div>
     </div>

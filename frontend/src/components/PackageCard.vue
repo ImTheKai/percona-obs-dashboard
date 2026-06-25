@@ -184,111 +184,86 @@ const isDimmed = computed(() => !!props.spotlightStates?.length && !props.spotli
 </script>
 
 <template>
-  <div :style="{
-    background: 'var(--bg-card)',
-    border: '1px solid var(--border)',
-    borderLeft: `4px solid ${rollupColor}`,
-    borderRadius: '12px',
-    padding: '15px',
-    display: 'flex',
-    flexDirection: 'column',
-    gap: '11px',
-    opacity: isDimmed ? 0.2 : 1,
-    boxShadow: isSpotlit ? `0 0 0 2px ${rollupColor}, 0 6px 20px rgba(0,0,0,0.12)` : 'none',
-    transition: 'opacity 0.2s, box-shadow 0.2s',
-  }">
+  <div
+    class="flex flex-col gap-[11px] rounded-[12px] p-[15px]"
+    :style="{
+      background: 'var(--bg-card)',
+      border: '1px solid var(--border)',
+      borderLeft: `4px solid ${rollupColor}`,
+      opacity: isDimmed ? 0.2 : 1,
+      boxShadow: isSpotlit ? `0 0 0 2px ${rollupColor}, 0 6px 20px rgba(0,0,0,0.12)` : 'none',
+      transition: 'opacity 0.2s, box-shadow 0.2s',
+    }"
+  >
     <!-- Row 1: state pill + duration + OBS link -->
-    <div style="display: flex; align-items: center; gap: 9px;">
-      <span :style="{
-        fontSize: '10.5px', fontWeight: '700', textTransform: 'uppercase',
-        letterSpacing: '0.04em', padding: '3px 9px', borderRadius: '6px',
-        color: rollupColor, background: rollupBg,
-      }">{{ STATE_LABEL[pkg.rollup_state] ?? pkg.rollup_state }}</span>
-      <span v-if="stateAge" style="margin-left: auto; font-size: 10.5px; color: var(--text-muted); font-family: var(--font-mono); white-space: nowrap; flex-shrink: 0;">{{ stateAge }}</span>
-      <a :href="obsUrl" target="_blank" rel="noopener" :style="{ marginLeft: stateAge ? '0' : 'auto', fontSize: '11.5px', fontWeight: '700', color: 'var(--brand-purple)', textDecoration: 'none', whiteSpace: 'nowrap', flexShrink: '0' }">OBS ↗</a>
+    <div class="flex items-center gap-[9px]">
+      <span
+        class="text-[10.5px] font-bold uppercase tracking-[0.04em] py-[3px] px-[9px] rounded-[6px]"
+        :style="{ color: rollupColor, background: rollupBg }"
+      >{{ STATE_LABEL[pkg.rollup_state] ?? pkg.rollup_state }}</span>
+      <span v-if="stateAge" class="ml-auto text-[10.5px] text-text-muted font-mono whitespace-nowrap flex-shrink-0">{{ stateAge }}</span>
+      <a :href="obsUrl" target="_blank" rel="noopener" :style="{ marginLeft: stateAge ? '0' : 'auto' }" class="text-[11.5px] font-bold text-brand-purple no-underline whitespace-nowrap flex-shrink-0">OBS ↗</a>
     </div>
 
     <!-- Row 2: package name -->
-    <code style="font-family: var(--font-mono); font-size: 13.5px; font-weight: 600; color: var(--text-primary); overflow-wrap: anywhere; line-height: 1.35;">{{ pkg.name }}</code>
+    <code class="font-mono text-[13.5px] font-semibold text-text-primary overflow-wrap leading-[1.35]">{{ pkg.name }}</code>
 
     <!-- Row 3: scope tags + version badge -->
-    <div style="display: flex; align-items: center; gap: 7px;">
+    <div class="flex items-center gap-[7px]">
       <span
         v-for="tag in (pkg.tags ?? [])" :key="tag"
-        style="font-size: 9.5px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; padding: 2px 7px; border-radius: 5px; background: var(--blocked-tint); color: var(--blocked);"
+        class="text-[9.5px] font-bold uppercase tracking-[0.05em] py-[2px] px-[7px] rounded-[5px] bg-blocked-tint text-blocked"
       >{{ TAG_LABEL[tag] ?? tag }}</span>
       <span
         v-if="versionLabel"
+        class="font-mono text-[10px] font-bold py-[2px] px-[7px] rounded-[5px] border border-border whitespace-nowrap flex-shrink-0"
         :style="{
-          fontFamily: 'var(--font-mono)',
-          fontSize: '10px',
-          fontWeight: '700',
-          padding: '2px 7px',
-          borderRadius: '5px',
           background: pkg.is_container ? 'var(--brand-purple-tint)' : 'var(--bg-muted, var(--blocked-tint))',
           color: pkg.is_container ? 'var(--brand-purple)' : 'var(--text-secondary)',
-          border: '1px solid var(--border)',
-          whiteSpace: 'nowrap',
-          flexShrink: '0',
         }"
       >{{ versionLabel }}</span>
     </div>
 
     <!-- Row 4: project path -->
-    <div style="display: flex;">
-      <code style="font-family: var(--font-mono); font-size: 10.5px; color: var(--text-muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">{{ pkg.project }}</code>
+    <div class="flex">
+      <code class="font-mono text-[10.5px] text-text-muted overflow-hidden text-ellipsis whitespace-nowrap">{{ pkg.project }}</code>
     </div>
 
     <!-- Row 5: failing targets -->
-    <div v-if="failingTargets.length > 0" style="display: flex; flex-direction: column; gap: 6px;">
-      <span style="font-size: 10.5px; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.05em;">
+    <div v-if="failingTargets.length > 0" class="flex flex-col gap-[6px]">
+      <span class="text-[10.5px] font-bold text-text-muted uppercase tracking-[0.05em]">
         {{ failingTargets.length }} active target{{ failingTargets.length !== 1 ? 's' : '' }}
       </span>
-      <div style="display: flex; flex-direction: column; gap: 5px;">
+      <div class="flex flex-col gap-[5px]">
         <div
           v-for="t in visibleFailing"
           :key="targetKey(t)"
-          :style="{
-            borderRadius: '7px',
-            overflow: 'hidden',
-            background: targetBg(t),
-          }"
+          class="rounded-[7px] overflow-hidden"
+          :style="{ background: targetBg(t) }"
         >
           <!-- Target header row -->
           <div
-            :style="{
-              display: 'flex', alignItems: 'center', gap: '9px',
-              padding: '5px 9px',
-              cursor: hasDetail(t) ? 'pointer' : 'default',
-              userSelect: 'none',
-            }"
+            class="flex items-center gap-[9px] py-[5px] px-[9px] select-none"
+            :style="{ cursor: hasDetail(t) ? 'pointer' : 'default', userSelect: 'none' }"
             @click="toggleTarget(t)"
           >
-            <span :style="{ width: '8px', height: '8px', borderRadius: '2px', background: targetDotColor(t), flexShrink: '0' }"></span>
-            <code style="font-family: var(--font-mono); font-size: 11.5px; color: var(--text-primary); flex-shrink: 0;">{{ t.repo }}/{{ t.arch }}</code>
-            <span :style="{ fontSize: '11px', color: targetDotColor(t), marginLeft: 'auto', fontWeight: '600', flexShrink: '0' }">
+            <span class="w-2 h-2 rounded-[2px] flex-shrink-0" :style="{ background: targetDotColor(t) }"></span>
+            <code class="font-mono text-[11.5px] text-text-primary flex-shrink-0">{{ t.repo }}/{{ t.arch }}</code>
+            <span class="text-[11px] font-semibold ml-auto flex-shrink-0" :style="{ color: targetDotColor(t) }">
               {{ STATE_LABEL[t.state] ?? t.state }}<template v-if="targetAge(t)"> · {{ targetAge(t) }}</template>
             </span>
             <a
               :href="logUrl(t.repo, t.arch)"
               target="_blank"
               rel="noopener"
-              style="font-size: 10.5px; color: var(--brand-purple); font-weight: 700; flex-shrink: 0; text-decoration: none;"
+              class="text-[10.5px] font-bold text-brand-purple flex-shrink-0 no-underline"
               @click.stop
             >log ↗</a>
             <button
               v-if="REBUILD_STATES.has(t.state)"
               :disabled="isRebuildLoading(t.repo, t.arch)"
-              :style="{
-                background: 'none',
-                border: 'none',
-                cursor: isRebuildLoading(t.repo, t.arch) ? 'default' : 'pointer',
-                padding: '0 2px',
-                fontSize: '13px',
-                color: 'var(--text-muted)',
-                flexShrink: '0',
-                lineHeight: '1',
-              }"
+              class="bg-none border-none px-[2px] text-[13px] flex-shrink-0 leading-none"
+              :style="{ cursor: isRebuildLoading(t.repo, t.arch) ? 'default' : 'pointer', color: 'var(--text-muted)' }"
               title="Retrigger build"
               aria-label="Retrigger build"
               @click.stop="triggerRebuild(pkg.project, pkg.name, t.repo, t.arch)"
@@ -297,53 +272,49 @@ const isDimmed = computed(() => !!props.spotlightStates?.length && !props.spotli
             </button>
             <span
               v-if="hasDetail(t)"
-              style="font-size: 10px; color: var(--text-muted); flex-shrink: 0; width: 12px; text-align: center;"
+              class="text-[10px] text-text-muted flex-shrink-0 w-3 text-center"
             >{{ isExpanded(t) ? '▾' : '▸' }}</span>
           </div>
 
           <!-- Target body (collapsible) -->
           <div
             v-show="isExpanded(t)"
-            style="padding: 0 9px 8px calc(9px + 8px + 9px); display: flex; flex-direction: column; gap: 5px;"
+            class="flex flex-col gap-[5px]"
+            :style="{ padding: '0 9px 8px calc(9px + 8px + 9px)' }"
           >
-            <hr style="border: none; border-top: 1px solid var(--border); margin: 0 0 3px;" />
-            <div v-if="buildReasonText(t)" style="display: flex; flex-direction: column; gap: 1px;">
-              <span style="font-size: 9px; text-transform: uppercase; letter-spacing: 0.07em; color: var(--text-muted); font-weight: 700;">Build reason</span>
-              <span style="font-family: var(--font-mono); font-size: 10.5px; color: var(--text-secondary); line-height: 1.4;">{{ buildReasonText(t) }}</span>
+            <hr class="border-none border-t border-border m-0 mb-[3px]" />
+            <div v-if="buildReasonText(t)" class="flex flex-col gap-[1px]">
+              <span class="text-[9px] uppercase tracking-[0.07em] text-text-muted font-bold">Build reason</span>
+              <span class="font-mono text-[10.5px] text-text-secondary leading-[1.4]">{{ buildReasonText(t) }}</span>
             </div>
-            <div v-if="stateDetailValue(t)" style="display: flex; flex-direction: column; gap: 1px;">
-              <span style="font-size: 9px; text-transform: uppercase; letter-spacing: 0.07em; color: var(--text-muted); font-weight: 700;">{{ stateDetailLabel(t) }}</span>
-              <span :style="{ fontFamily: 'var(--font-mono)', fontSize: '10.5px', color: stateDetailColor(t), fontWeight: '600', lineHeight: '1.4' }">{{ stateDetailValue(t) }}</span>
+            <div v-if="stateDetailValue(t)" class="flex flex-col gap-[1px]">
+              <span class="text-[9px] uppercase tracking-[0.07em] text-text-muted font-bold">{{ stateDetailLabel(t) }}</span>
+              <span class="font-mono text-[10.5px] font-semibold leading-[1.4]" :style="{ color: stateDetailColor(t) }">{{ stateDetailValue(t) }}</span>
             </div>
           </div>
 
           <!-- Rebuild error -->
           <div
             v-if="rebuildErrorFor(t.repo, t.arch)"
-            :style="{
-              padding: '3px 9px 6px',
-              fontSize: '10.5px',
-              color: 'var(--fail)',
-              fontFamily: 'var(--font-mono)',
-            }"
+            class="py-[3px] px-[9px] pb-[6px] text-[10.5px] text-fail font-mono"
           >{{ rebuildErrorFor(t.repo, t.arch) }}</div>
         </div>
 
         <button
           v-if="!showAll && hiddenCount > 0"
           @click="showAll = true"
-          style="font-size: 11px; color: var(--brand-purple); font-weight: 600; padding: 4px 9px; border: none; background: transparent; cursor: pointer; text-align: left; font-family: inherit;"
+          class="text-[11px] text-brand-purple font-semibold py-[4px] px-[9px] border-none bg-transparent cursor-pointer text-left font-inherit"
         >+ {{ hiddenCount }} more</button>
         <button
           v-if="showAll && hiddenCount > 0"
           @click="showAll = false"
-          style="font-size: 11px; color: var(--text-muted); font-weight: 600; padding: 4px 9px; border: none; background: transparent; cursor: pointer; text-align: left; font-family: inherit;"
+          class="text-[11px] text-text-muted font-semibold py-[4px] px-[9px] border-none bg-transparent cursor-pointer text-left font-inherit"
         >Show less</button>
       </div>
     </div>
 
     <!-- Row 5: ok targets count -->
-    <div style="font-size: 11px; color: var(--text-muted);">{{ pkg.ok_targets }}/{{ pkg.total_targets }} targets ok</div>
+    <div class="text-[11px] text-text-muted">{{ pkg.ok_targets }}/{{ pkg.total_targets }} targets ok</div>
   </div>
 </template>
 
