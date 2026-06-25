@@ -17,18 +17,18 @@ const emit = defineEmits<{
 </script>
 
 <template>
-  <div class="version-bar">
-    <div class="top-row">
+  <div class="bg-bg-card border border-border rounded-[14px] px-[18px] py-[14px] mx-4 my-3 flex-shrink-0">
+    <div class="flex items-center gap-4 flex-wrap">
       <!-- PostgreSQL badge -->
-      <span class="pg-badge">PostgreSQL</span>
+      <span class="inline-flex items-center gap-[7px] px-3 py-[5px] rounded-[8px] bg-tint-postgres text-tech-postgres text-[12px] font-bold border border-[rgba(0,94,214,0.15)]">PostgreSQL</span>
 
       <!-- Context: plain badge when only one context, dropdown when multiple -->
-      <code v-if="contexts.length <= 1" class="obs-badge">
+      <code v-if="contexts.length <= 1" class="font-mono text-[12.5px] text-text-secondary bg-bg-muted px-[10px] py-[5px] rounded-[7px]">
         {{ selectedContext.prefix }}:{{ version }}
       </code>
       <select
         v-else
-        class="context-select"
+        class="font-mono text-[12.5px] text-text-secondary bg-bg-muted px-[10px] py-[5px] rounded-[7px] border-none cursor-pointer [appearance:auto]"
         :value="selectedContext.apiBase"
         @change="emit('update:context', contexts.find(c => c.apiBase === ($event.target as HTMLSelectElement).value)!)"
       >
@@ -40,30 +40,30 @@ const emit = defineEmits<{
       </select>
 
       <!-- Version segment control -->
-      <div v-if="availableVersions.length > 0" class="inline-group">
-        <span class="row-label">Version</span>
-        <div class="segment">
+      <div v-if="availableVersions.length > 0" class="flex items-center gap-[6px]">
+        <span class="text-[11px] text-text-muted font-semibold uppercase [letter-spacing:0.06em] mr-[2px]">Version</span>
+        <div class="flex gap-[3px] bg-bg-muted p-[3px] rounded-[9px] border border-border">
           <button
             v-for="v in availableVersions"
             :key="v"
-            class="seg-btn"
-            :class="{ active: v === version }"
+            class="bg-transparent text-text-muted font-medium px-3 py-1 rounded-[7px] border border-transparent text-[13px] cursor-pointer [font-family:inherit]"
+            :class="{ 'bg-bg-card text-text-primary font-bold border-border-strong shadow-[0_1px_2px_rgba(0,0,0,0.12)]': v === version }"
             @click="emit('update:version', v)"
           >{{ v }}</button>
         </div>
       </div>
 
       <!-- Tab switcher -->
-      <div class="inline-group" style="margin-left: auto;">
-        <div class="segment">
+      <div class="flex items-center gap-[6px] ml-auto">
+        <div class="flex gap-[3px] bg-bg-muted p-[3px] rounded-[9px] border border-border">
           <button
-            class="seg-btn"
-            :class="{ active: activeTab === 'packages' }"
+            class="bg-transparent text-text-muted font-medium px-3 py-1 rounded-[7px] border border-transparent text-[13px] cursor-pointer [font-family:inherit]"
+            :class="{ 'bg-bg-card text-text-primary font-bold border-border-strong shadow-[0_1px_2px_rgba(0,0,0,0.12)]': activeTab === 'packages' }"
             @click="emit('update:tab', 'packages')"
           >Packages</button>
           <button
-            class="seg-btn"
-            :class="{ active: activeTab === 'containers' }"
+            class="bg-transparent text-text-muted font-medium px-3 py-1 rounded-[7px] border border-transparent text-[13px] cursor-pointer [font-family:inherit]"
+            :class="{ 'bg-bg-card text-text-primary font-bold border-border-strong shadow-[0_1px_2px_rgba(0,0,0,0.12)]': activeTab === 'containers' }"
             @click="emit('update:tab', 'containers')"
           >Container Images</button>
         </div>
@@ -71,99 +71,3 @@ const emit = defineEmits<{
     </div>
   </div>
 </template>
-
-<style scoped>
-.version-bar {
-  background: var(--bg-card);
-  border: 1px solid var(--border);
-  border-radius: 14px;
-  padding: 14px 18px;
-  margin: 12px 16px 0;
-  flex-shrink: 0;
-}
-
-.top-row {
-  display: flex;
-  align-items: center;
-  gap: 16px;
-  flex-wrap: wrap;
-}
-
-.pg-badge {
-  display: inline-flex;
-  align-items: center;
-  gap: 7px;
-  padding: 5px 12px;
-  border-radius: 8px;
-  background: var(--tint-postgres);
-  color: var(--tech-postgres);
-  font-size: 12px;
-  font-weight: 700;
-  border: 1px solid rgba(0, 94, 214, 0.15);
-}
-
-.obs-badge {
-  font-family: var(--font-mono);
-  font-size: 12.5px;
-  color: var(--text-secondary);
-  background: var(--bg-muted);
-  padding: 5px 10px;
-  border-radius: 7px;
-}
-
-.context-select {
-  font-family: var(--font-mono);
-  font-size: 12.5px;
-  color: var(--text-secondary);
-  background: var(--bg-muted);
-  padding: 5px 10px;
-  border-radius: 7px;
-  border: none;
-  cursor: pointer;
-  appearance: auto;
-}
-
-.inline-group {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-}
-
-.row-label {
-  font-size: 11px;
-  color: var(--text-muted);
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
-  margin-right: 2px;
-}
-
-.segment {
-  display: flex;
-  gap: 3px;
-  background: var(--bg-muted);
-  padding: 3px;
-  border-radius: 9px;
-  border: 1px solid var(--border);
-}
-
-.seg-btn {
-  background: transparent;
-  color: var(--text-muted);
-  font-weight: 500;
-  padding: 4px 12px;
-  border-radius: 7px;
-  border: 1px solid transparent;
-  font-size: 13px;
-  cursor: pointer;
-  font-family: inherit;
-}
-
-.seg-btn.active {
-  background: var(--bg-card);
-  color: var(--text-primary);
-  font-weight: 700;
-  border-color: var(--border-strong);
-  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.12);
-}
-</style>
