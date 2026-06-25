@@ -639,13 +639,13 @@ function toggleCvePanel(imageId: string) {
 }
 
 .status-badge.cve-age {
-  background: var(--warn-tint);
-  color: var(--warn);
+  background: var(--warn-tint, #fff3dc);
+  color: var(--warn, #e08a00);
 }
 
 .cve-arch-since {
   font-size: 11px;
-  color: var(--warn);
+  color: var(--warn, #e08a00);
   margin-bottom: 6px;
 }
 </style>
