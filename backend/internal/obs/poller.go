@@ -128,7 +128,8 @@ func (p *Poller) tick(ctx context.Context) {
 					}
 				}
 				// Add to working set only if there is work remaining.
-				if pkg.RollupState != model.RollupPublished || pkg.IsContainer == nil {
+				containerNeedsTags := pkg.IsContainer != nil && *pkg.IsContainer && len(pkg.ContainerTags) == 0
+				if pkg.RollupState != model.RollupPublished || pkg.IsContainer == nil || containerNeedsTags {
 					p.ws.Add(pkg)
 				}
 			}
