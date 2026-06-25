@@ -104,21 +104,21 @@ func (p *Pool) ProcessOnce(ctx context.Context, pkg *model.Package) {
 	if !pkg.IsRelease {
 		p.hub.Notify(hubpkg.PackageUpdate(pkg))
 		p.emitBuildEvents(pkg, oldTargets, now)
+	}
 
-		if p.scanner != nil &&
-			pkg.IsContainer != nil && *pkg.IsContainer &&
-			pkg.RollupState == model.RollupPublished &&
-			prevRollupState != model.RollupPublished &&
-			len(pkg.ContainerTags) > 0 {
-			p.scanner.Enqueue(cve.ScanRequest{
-				Project:    pkg.Project,
-				Package:    pkg.Name,
-				Tags:       pkg.Tags,
-				ImageBase:  cve.ImageBase(pkg.Project, pkg.Name),
-				PrimaryTag: pkg.ContainerTags[len(pkg.ContainerTags)-1],
-				Targets:    cve.SucceededTargets(pkg.Targets),
-			})
-		}
+	if p.scanner != nil &&
+		pkg.IsContainer != nil && *pkg.IsContainer &&
+		pkg.RollupState == model.RollupPublished &&
+		prevRollupState != model.RollupPublished &&
+		len(pkg.ContainerTags) > 0 {
+		p.scanner.Enqueue(cve.ScanRequest{
+			Project:    pkg.Project,
+			Package:    pkg.Name,
+			Tags:       pkg.Tags,
+			ImageBase:  cve.ImageBase(pkg.Project, pkg.Name),
+			PrimaryTag: pkg.ContainerTags[len(pkg.ContainerTags)-1],
+			Targets:    cve.SucceededTargets(pkg.Targets),
+		})
 	}
 
 	if pkg.RollupState == model.RollupPublished && pkg.IsContainer != nil {

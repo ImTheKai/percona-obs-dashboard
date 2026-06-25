@@ -290,7 +290,7 @@ func (s *Scanner) appendEvent(evt *model.Event) {
 // ImageBase constructs the OBS container registry path for a package.
 // Example: "isv:percona:ppg:17" → "registry.opensuse.org/isv/percona/ppg/17/images/<name>"
 func ImageBase(project, name string) string {
-	return "registry.opensuse.org/" + strings.ReplaceAll(project, ":", "/") + "/images/" + name
+	return "registry.opensuse.org/" + strings.ToLower(strings.ReplaceAll(project, ":", "/")) + "/images/" + name
 }
 
 // SucceededTargets filters targets to those with state "succeeded".
