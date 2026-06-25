@@ -72,6 +72,13 @@ function latestScanTime(scans: CveScan[]): string {
   return formatArtifactTime(latest.scanned_at)
 }
 
+function baseOsSubtitle(baseOs: string): string {
+  if (baseOs.startsWith('UBI')) return 'Red Hat Universal Base Image'
+  if (baseOs.startsWith('Ubuntu')) return 'Ubuntu container base'
+  if (baseOs.startsWith('Debian')) return 'Debian container base'
+  return 'Container base image'
+}
+
 const openCvePanels = ref(new Set<string>())
 
 watch(() => props.containerImages, () => {
@@ -102,7 +109,15 @@ function toggleCvePanel(imageId: string) {
 
     <template v-if="groups.length > 0">
       <div v-for="group in groups" :key="group.baseOs" class="os-group">
-        <div class="os-group-header">{{ group.baseOs }}</div>
+        <div class="os-group-header">
+          <div class="os-group-title-block">
+            <h3 class="os-group-title">{{ group.baseOs }}</h3>
+            <span class="os-group-subtitle">{{ baseOsSubtitle(group.baseOs) }}</span>
+          </div>
+          <span class="os-group-count">
+            {{ group.images.length }} image{{ group.images.length !== 1 ? 's' : '' }}
+          </span>
+        </div>
         <div class="images-grid">
           <div
             v-for="image in group.images"
@@ -272,13 +287,54 @@ function toggleCvePanel(imageId: string) {
 }
 
 /* OS group */
+.os-group {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
 .os-group-header {
-  font-size: 13px;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 11px 14px;
+  background: var(--bg-card-2);
+  border: 1px solid var(--border);
+  border-left: 4px solid var(--brand-purple);
+  border-radius: 8px;
+}
+
+.os-group-title-block {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.os-group-title {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 750;
+  line-height: 1.2;
+  color: var(--text-primary);
+}
+
+.os-group-subtitle {
+  font-size: 11.5px;
   color: var(--text-muted);
-  margin-bottom: 12px;
+}
+
+.os-group-count {
+  flex-shrink: 0;
+  padding: 3px 8px;
+  border-radius: 6px;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  color: var(--text-secondary);
+  font-size: 11px;
+  font-weight: 700;
+  white-space: nowrap;
 }
 
 .images-grid {
