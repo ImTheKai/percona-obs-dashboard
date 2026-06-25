@@ -258,7 +258,7 @@ function toggleCvePanel(imageId: string) {
       </div>
     </template>
 
-    <div v-else-if="!loading" class="text-center py-12 text-text-muted text-[14px]">
+    <div v-else-if="!loading" class="text-center p-12 text-text-muted text-[14px]">
       No container images for this version.
     </div>
   </div>
