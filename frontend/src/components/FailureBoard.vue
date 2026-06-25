@@ -20,7 +20,7 @@ const attentionCount = computed(() => failingPackages.value.length)
     </div>
 
     <!-- 2-column failure grid -->
-    <div v-if="failingPackages.length > 0" class="grid grid-cols-[repeat(2,minmax(0,1fr))] gap-[14px]">
+    <div v-if="failingPackages.length > 0" class="grid grid-cols-1 sm:grid-cols-[repeat(2,minmax(0,1fr))] gap-[14px]">
       <PackageCard
         v-for="pkg in failingPackages"
         :key="`${pkg.project}/${pkg.name}`"
