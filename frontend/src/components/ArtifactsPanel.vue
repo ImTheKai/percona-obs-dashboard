@@ -1,5 +1,5 @@
 <template>
-  <div class="artifacts-panel">
+  <div class="flex flex-col h-full min-h-0">
     <ArtifactsVersionBar
       :version="props.artifactsVersion"
       :available-versions="availableVersions"
@@ -314,12 +314,3 @@ function onCopy(key: string, text: string) {
   }, 2000)
 }
 </script>
-
-<style scoped>
-.artifacts-panel {
-  display: flex;
-  flex-direction: column;
-  height: 100%;
-  min-height: 0;
-}
-</style>
