@@ -10,11 +10,11 @@ const emit = defineEmits<{
 </script>
 
 <template>
-  <header style="display: flex; align-items: center; justify-content: space-between; gap: 20px;">
-    <div style="display: flex; align-items: center; gap: 12px;">
-<div style="display: flex; flex-direction: column; gap: 1px;">
-        <h1 style="margin: 0; font-size: 21px; font-weight: 700; letter-spacing: -0.01em; color: var(--text-primary);">Percona OBS Dashboard</h1>
-        <span style="font-size: 12.5px; color: var(--text-muted);">Failure-first build monitor across every subproject of a product</span>
+  <header class="flex items-center justify-between gap-5">
+    <div class="flex items-center gap-3">
+      <div class="flex flex-col gap-[1px]">
+        <h1 class="m-0 text-[21px] font-bold tracking-[-0.01em] text-text-primary">Percona OBS Dashboard</h1>
+        <span class="text-[12.5px] text-text-muted">Failure-first build monitor across every subproject of a product</span>
       </div>
     </div>
     <div class="tab-switcher">
@@ -35,9 +35,9 @@ const emit = defineEmits<{
     </div>
     <button
       @click="emit('toggle-theme')"
-      style="flex-shrink: 0; display: inline-flex; align-items: center; gap: 8px; padding: 8px 14px; border-radius: 10px; border: 1px solid var(--border); background: var(--bg-card); color: var(--text-secondary); font-family: inherit; font-size: 13px; font-weight: 600; cursor: pointer;"
+      class="shrink-0 inline-flex items-center gap-2 px-[14px] py-2 rounded-[10px] border border-border bg-bg-card text-text-secondary [font-family:inherit] text-[13px] font-semibold cursor-pointer"
     >
-      <span style="width: 8px; height: 8px; border-radius: 99px; background: var(--brand-purple);"></span>
+      <span class="w-2 h-2 rounded-full bg-brand-purple"></span>
       {{ theme === 'dark' ? 'Dark' : 'Light' }} mode
     </button>
   </header>
@@ -45,30 +45,15 @@ const emit = defineEmits<{
 
 <style scoped>
 .tab-switcher {
-  display: flex;
-  gap: 2px;
-  background: var(--bg-muted);
-  padding: 3px;
-  border-radius: 11px;
-  border: 1px solid var(--border);
+  @apply flex gap-[2px] bg-bg-muted p-[3px] rounded-[11px] border border-border;
 }
 
 .tab-pill {
-  padding: 5px 14px;
-  border-radius: 8px;
-  font-size: 13px;
-  font-weight: 500;
-  cursor: pointer;
-  border: 1px solid transparent;
-  background: transparent;
-  color: var(--text-muted);
+  @apply py-[5px] px-[14px] rounded-[8px] text-[13px] font-medium cursor-pointer border border-transparent bg-transparent text-text-muted;
   transition: background 0.15s, color 0.15s, box-shadow 0.15s;
 }
 
 .tab-pill.active {
-  background: var(--bg-card);
-  color: var(--brand-purple);
-  border-color: var(--border-strong);
-  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.12);
+  @apply bg-bg-card text-brand-purple border-border-strong shadow-[0_1px_2px_rgba(0,0,0,0.12)];
 }
 </style>
