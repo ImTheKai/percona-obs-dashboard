@@ -63,7 +63,17 @@ type CveScan struct {
 	ScannedAt     time.Time    `json:"scanned_at"`
 	CriticalCount int          `json:"critical_count"`
 	HighCount     int          `json:"high_count"`
+	CveSince      *time.Time   `json:"cve_since,omitempty"`
+	CleanSince    *time.Time   `json:"clean_since,omitempty"`
 	Findings      []CveFinding `json:"findings,omitempty"`
+}
+
+type CvePeriod struct {
+	Project    string    `json:"project"`
+	Package    string    `json:"package"`
+	Arch       string    `json:"arch"`
+	CveSince   time.Time `json:"cve_since"`
+	CleanSince time.Time `json:"clean_since"`
 }
 
 type Trigger struct {
