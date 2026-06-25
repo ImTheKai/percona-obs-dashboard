@@ -17,10 +17,10 @@ const emit = defineEmits<{
 </script>
 
 <template>
-  <div class="bg-bg-card border border-border rounded-[14px] px-[18px] py-[14px] mx-4 my-3 flex-shrink-0">
+  <div class="bg-bg-card border border-border rounded-[14px] px-[18px] py-[14px] mt-3 mx-4 flex-shrink-0">
     <div class="flex items-center gap-4 flex-wrap">
       <!-- PostgreSQL badge -->
-      <span class="inline-flex items-center gap-[7px] px-3 py-[5px] rounded-[8px] bg-tint-postgres text-tech-postgres text-[12px] font-bold border border-[rgba(0,94,214,0.15)]">PostgreSQL</span>
+      <span class="inline-flex items-center gap-[7px] px-3 py-[5px] rounded-[8px] bg-[var(--tint-postgres)] text-[var(--tech-postgres)] text-[12px] font-bold border border-[rgba(0,94,214,0.15)]">PostgreSQL</span>
 
       <!-- Context: plain badge when only one context, dropdown when multiple -->
       <code v-if="contexts.length <= 1" class="font-mono text-[12.5px] text-text-secondary bg-bg-muted px-[10px] py-[5px] rounded-[7px]">
