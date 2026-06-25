@@ -71,6 +71,7 @@ func run() error {
 	}
 	releaseTasks := []worker.Task{
 		obs.PackageTypeTask{},
+		obs.ContainerTagsTask{},
 		obs.BinariesCheckTask{},
 	}
 	pool := worker.NewPool(cfg.WorkerPool.Size, devTasks, releaseTasks, obsClient, db, h, ws, scanner)
