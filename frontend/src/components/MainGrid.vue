@@ -20,7 +20,7 @@ const emit = defineEmits<{
 </script>
 
 <template>
-  <div style="display: grid; grid-template-columns: minmax(0,1fr) 440px; gap: 18px; align-items: start;">
+  <div class="grid grid-cols-[minmax(0,1fr)_440px] gap-[18px] items-start">
     <FailureBoard :packages="packages" :spotlight-states="spotlightStates" />
     <EventLog
       :events="events"
