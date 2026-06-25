@@ -164,137 +164,140 @@ function canExpand(row: PackageRow): boolean {
 </script>
 
 <template>
-  <div class="packages-subtab">
-    <!-- Sidebar -->
-    <div class="sidebar">
+  <!-- packages-subtab: flex gap-4 p-4 h-full min-h-0 -->
+  <div class="flex gap-4 p-4 h-full min-h-0">
+    <!-- Sidebar: w-[220px] shrink-0 -->
+    <div class="w-[220px] shrink-0 self-start bg-bg-card rounded-xl overflow-hidden flex flex-col">
       <template v-if="rhelRepos.length > 0">
-        <div class="group-label">RHEL</div>
+        <!-- group-label -->
+        <div class="px-4 py-2 text-[11px] font-semibold uppercase tracking-[0.06em] text-text-muted border-t border-b border-border first:border-t-0">RHEL</div>
         <button
           v-for="repo in rhelRepos"
           :key="repo.obs"
-          class="sidebar-row"
-          :class="{ active: selectedRepo?.obs === repo.obs }"
+          class="w-full py-[9px] px-4 text-left border-none bg-transparent text-text-secondary font-medium text-[13.5px] cursor-pointer"
+          :class="{ 'bg-brand-purple-tint text-brand-purple font-bold': selectedRepo?.obs === repo.obs }"
           @click="emit('update:art-repo', repo.obs)"
         >{{ repo.name }}</button>
       </template>
 
       <template v-if="opensuseRepos.length > 0">
-        <div class="group-label">openSUSE</div>
+        <div class="px-4 py-2 text-[11px] font-semibold uppercase tracking-[0.06em] text-text-muted border-t border-b border-border">openSUSE</div>
         <button
           v-for="repo in opensuseRepos"
           :key="repo.obs"
-          class="sidebar-row"
-          :class="{ active: selectedRepo?.obs === repo.obs }"
+          class="w-full py-[9px] px-4 text-left border-none bg-transparent text-text-secondary font-medium text-[13.5px] cursor-pointer"
+          :class="{ 'bg-brand-purple-tint text-brand-purple font-bold': selectedRepo?.obs === repo.obs }"
           @click="emit('update:art-repo', repo.obs)"
         >{{ repo.name }}</button>
       </template>
 
       <template v-if="ubuntuRepos.length > 0">
-        <div class="group-label">Ubuntu</div>
+        <div class="px-4 py-2 text-[11px] font-semibold uppercase tracking-[0.06em] text-text-muted border-t border-b border-border">Ubuntu</div>
         <button
           v-for="repo in ubuntuRepos"
           :key="repo.obs"
-          class="sidebar-row"
-          :class="{ active: selectedRepo?.obs === repo.obs }"
+          class="w-full py-[9px] px-4 text-left border-none bg-transparent text-text-secondary font-medium text-[13.5px] cursor-pointer"
+          :class="{ 'bg-brand-purple-tint text-brand-purple font-bold': selectedRepo?.obs === repo.obs }"
           @click="emit('update:art-repo', repo.obs)"
         >{{ repo.name }}</button>
       </template>
 
       <template v-if="debianRepos.length > 0">
-        <div class="group-label">Debian</div>
+        <div class="px-4 py-2 text-[11px] font-semibold uppercase tracking-[0.06em] text-text-muted border-t border-b border-border">Debian</div>
         <button
           v-for="repo in debianRepos"
           :key="repo.obs"
-          class="sidebar-row"
-          :class="{ active: selectedRepo?.obs === repo.obs }"
+          class="w-full py-[9px] px-4 text-left border-none bg-transparent text-text-secondary font-medium text-[13.5px] cursor-pointer"
+          :class="{ 'bg-brand-purple-tint text-brand-purple font-bold': selectedRepo?.obs === repo.obs }"
           @click="emit('update:art-repo', repo.obs)"
         >{{ repo.name }}</button>
       </template>
 
       <template v-if="otherRepos.length > 0">
-        <div class="group-label">Other</div>
+        <div class="px-4 py-2 text-[11px] font-semibold uppercase tracking-[0.06em] text-text-muted border-t border-b border-border">Other</div>
         <button
           v-for="repo in otherRepos"
           :key="repo.obs"
-          class="sidebar-row"
-          :class="{ active: selectedRepo?.obs === repo.obs }"
+          class="w-full py-[9px] px-4 text-left border-none bg-transparent text-text-secondary font-medium text-[13.5px] cursor-pointer"
+          :class="{ 'bg-brand-purple-tint text-brand-purple font-bold': selectedRepo?.obs === repo.obs }"
           @click="emit('update:art-repo', repo.obs)"
         >{{ repo.name }}</button>
       </template>
 
-      <div v-if="repos.length === 0" class="sidebar-empty">
+      <div v-if="repos.length === 0" class="px-4 py-3 text-[12px] text-text-muted">
         {{ packageRows.length > 0 ? 'No build repos' : 'Loading…' }}
       </div>
     </div>
 
     <!-- Main content -->
-    <div class="content">
+    <div class="flex-1 flex flex-col gap-3 min-w-0 overflow-y-auto">
       <!-- Combined repo header + snippet card -->
-      <div class="repo-card" v-if="selectedRepo">
-        <div class="repo-header">
-          <div class="repo-header-left">
-            <span class="repo-title">{{ selectedRepo.name }}</span>
-            <code class="repo-obs-path">{{ selectedRepo.obs }}</code>
+      <div class="bg-bg-card rounded-[14px] overflow-hidden shrink-0" v-if="selectedRepo">
+        <div class="flex items-center justify-between px-[18px] py-[14px]">
+          <div class="flex items-baseline gap-[10px]">
+            <span class="text-[17px] font-bold">{{ selectedRepo.name }}</span>
+            <code class="[font-family:var(--font-mono)] text-[12px] text-text-muted">{{ selectedRepo.obs }}</code>
           </div>
-          <div class="arch-selector">
+          <!-- arch-selector: segmented control -->
+          <div class="flex gap-0.5 bg-bg-muted [padding:3px] rounded-[9px] border border-border">
             <button
-              class="arch-pill"
-              :class="{ active: artArch === 'x86_64' }"
+              class="px-3 py-1 rounded-[7px] text-[12px] font-medium cursor-pointer border border-transparent bg-transparent text-text-muted"
+              :class="{ 'bg-bg-card text-brand-purple border-border-strong shadow-[0_1px_2px_rgba(0,0,0,0.10)]': artArch === 'x86_64' }"
               @click="emit('update:art-arch', 'x86_64')"
             >x86_64</button>
             <button
-              class="arch-pill"
-              :class="{ active: artArch === 'aarch64' }"
+              class="px-3 py-1 rounded-[7px] text-[12px] font-medium cursor-pointer border border-transparent bg-transparent text-text-muted"
+              :class="{ 'bg-bg-card text-brand-purple border-border-strong shadow-[0_1px_2px_rgba(0,0,0,0.10)]': artArch === 'aarch64' }"
               @click="emit('update:art-arch', 'aarch64')"
             >aarch64</button>
           </div>
         </div>
-        <div class="snippet-section">
-          <div class="snippet-header">
-            <span class="snippet-label">Repository setup</span>
+        <div class="px-[18px] pb-[18px]">
+          <div class="flex items-center justify-between mb-2">
+            <span class="text-[11px] font-semibold uppercase tracking-[0.06em] text-text-muted">Repository setup</span>
             <button
-              class="copy-btn"
-              :class="{ copied: copiedKey === 'repo-config' }"
+              class="text-[12px] py-1 px-[10px] rounded-md border border-border bg-bg-card text-text-secondary cursor-pointer"
+              :class="{ 'text-[var(--success)] border-[var(--success)]': copiedKey === 'repo-config' }"
               @click="emit('copy', 'repo-config', snippet)"
             >
               {{ copiedKey === 'repo-config' ? '✓ Copied' : 'Copy' }}
             </button>
           </div>
-          <pre class="snippet-pre"><code>{{ snippet }}</code></pre>
+          <pre class="bg-bg-card-2 py-[14px] px-4 rounded-lg [font-family:var(--font-mono)] text-[12px] whitespace-pre overflow-x-auto m-0"><code>{{ snippet }}</code></pre>
         </div>
       </div>
 
       <!-- Package list card -->
-      <div class="pkg-card" v-if="showPackageList">
-        <div class="pkg-card-header">
-          <span class="pkg-card-title">Packages</span>
-          <span class="pkg-card-subtitle">
+      <div class="bg-bg-card rounded-xl overflow-hidden shrink-0" v-if="showPackageList">
+        <div class="flex items-baseline gap-[10px] px-[18px] py-[14px] border-b border-border">
+          <span class="text-[15px] font-bold">Packages</span>
+          <span class="text-[12px] text-text-muted">
             {{ packageRows.length }} available
             <template v-if="selectedRepo"> · {{ selectedRepo.name }} / {{ artArch }}</template>
           </span>
         </div>
-        <div v-if="loading" class="packages-loading">
+        <div v-if="loading" class="flex flex-col items-center justify-center py-12 gap-3">
           <div class="spinner"></div>
-          <span class="loading-label">Fetching packages…</span>
+          <span class="text-[13px] text-text-muted">Fetching packages…</span>
         </div>
-        <div v-else class="pkg-list">
+        <div v-else class="overflow-y-auto">
           <div
             v-for="row in packageRows"
             :key="rowKey(row)"
-            class="pkg-group"
+            class="border-b border-border last:border-b-0"
           >
             <!-- Package header row (click to expand) -->
             <button
-              class="pkg-row"
-              :class="{ expanded: expanded[rowKey(row)] }"
+              class="pkg-row flex items-center gap-[10px] py-[10px] px-[18px] w-full text-left bg-transparent border-none cursor-pointer"
+              :class="{ 'bg-bg-muted': expanded[rowKey(row)] }"
               @click="canExpand(row) ? toggleRow(row) : undefined"
               :disabled="!canExpand(row)"
               :title="canExpand(row) ? 'Click to show binaries' : 'Package is not in succeeded state'"
             >
-              <span class="expand-glyph">{{ canExpand(row) ? (expanded[rowKey(row)] ? '▼' : '▶') : '' }}</span>
-              <code class="pkg-name">{{ row.name }}</code>
-              <code v-if="row.version" class="pkg-version">{{ row.version }}</code>
-              <span v-if="row.builtAt" class="pkg-built-at">{{ formatArtifactTime(row.builtAt) }}</span>
+              <span class="text-[9px] text-text-muted w-[10px] shrink-0">{{ canExpand(row) ? (expanded[rowKey(row)] ? '▼' : '▶') : '' }}</span>
+              <code class="[font-family:var(--font-mono)] text-[13px] font-bold flex-1 min-w-0 text-left">{{ row.name }}</code>
+              <code v-if="row.version" class="[font-family:var(--font-mono)] text-[11px] text-text-muted whitespace-nowrap shrink-0">{{ row.version }}</code>
+              <span v-if="row.builtAt" class="text-[11px] text-text-muted whitespace-nowrap shrink-0">{{ formatArtifactTime(row.builtAt) }}</span>
               <span
                 v-if="row.isRebuilding"
                 class="status-badge status-stale-warning"
@@ -306,30 +309,30 @@ function canExpand(row: PackageRow): boolean {
             </button>
 
             <!-- Binary list (expanded) -->
-            <div v-if="expanded[rowKey(row)]" class="binary-list">
-              <div v-if="binaryCache[rowKey(row)] === 'loading'" class="binary-loading">
+            <div v-if="expanded[rowKey(row)]" class="bg-bg-card-2 border-t border-border py-[6px]">
+              <div v-if="binaryCache[rowKey(row)] === 'loading'" class="py-2 px-[18px] pl-[38px] text-[12px] text-text-muted">
                 Loading…
               </div>
-              <div v-else-if="binaryCache[rowKey(row)] === 'error'" class="binary-error">
+              <div v-else-if="binaryCache[rowKey(row)] === 'error'" class="py-2 px-[18px] pl-[38px] text-[12px] text-[var(--danger,#dc2626)]">
                 Failed to load binaries.
               </div>
               <template v-else-if="Array.isArray(binaryCache[rowKey(row)])">
                 <div
                   v-for="binary in (binaryCache[rowKey(row)] as ArtifactBinary[])"
                   :key="binary.filename"
-                  class="binary-row"
+                  class="binary-row flex items-center justify-between py-[6px] px-[18px] pl-[38px] gap-3 hover:bg-bg-muted"
                 >
-                  <div class="binary-details">
-                    <code class="binary-name">{{ binary.filename }}</code>
-                    <span v-if="binary.built_at" class="binary-built-at">{{ formatArtifactTime(binary.built_at) }}</span>
+                  <div class="flex flex-col gap-0.5 min-w-0">
+                    <code class="[font-family:var(--font-mono)] text-[12px] text-text-secondary flex-1 min-w-0 [word-break:break-all]">{{ binary.filename }}</code>
+                    <span v-if="binary.built_at" class="text-[11px] text-text-muted">{{ formatArtifactTime(binary.built_at) }}</span>
                   </div>
                   <a
-                    class="download-btn"
+                    class="text-[12px] py-[3px] px-[10px] rounded-md bg-brand-purple text-white no-underline whitespace-nowrap font-medium shrink-0"
                     :href="downloadUrl(row, binary.filename)"
                     target="_blank"
                   >&#x2193; Download</a>
                 </div>
-                <div v-if="(binaryCache[rowKey(row)] as ArtifactBinary[]).length === 0" class="binary-empty">
+                <div v-if="(binaryCache[rowKey(row)] as ArtifactBinary[]).length === 0" class="py-2 px-[18px] pl-[38px] text-[12px] text-text-muted">
                   No distributable binaries.
                 </div>
               </template>
@@ -342,224 +345,19 @@ function canExpand(row: PackageRow): boolean {
 </template>
 
 <style scoped>
-.packages-subtab {
-  display: flex;
-  gap: 16px;
-  padding: 16px;
-  height: 100%;
-  min-height: 0;
-}
-
-/* --- Sidebar --- */
-
-.sidebar {
-  width: 220px;
-  flex-shrink: 0;
-  align-self: flex-start;
-  background: var(--bg-card);
-  border-radius: 12px;
-  overflow: hidden;
-  display: flex;
-  flex-direction: column;
-}
-
-.sidebar-empty {
-  padding: 12px 16px;
-  font-size: 12px;
-  color: var(--text-muted);
-}
-
-.group-label {
-  padding: 8px 16px;
-  font-size: 11px;
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
-  color: var(--text-muted);
-  border-top: 1px solid var(--border);
-  border-bottom: 1px solid var(--border);
-}
-
-.sidebar > .group-label:first-child {
-  border-top: none;
-}
-
-.sidebar-row {
-  width: 100%;
-  padding: 9px 16px;
-  text-align: left;
-  border: none;
-  background: transparent;
-  color: var(--text-secondary);
-  font-weight: 500;
-  font-size: 13.5px;
-  cursor: pointer;
-}
-
-.sidebar-row.active {
-  background: var(--brand-purple-tint);
-  color: var(--brand-purple);
-  font-weight: 700;
-}
-
-/* --- Main content --- */
-
-.content {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-  min-width: 0;
-  overflow-y: auto;
-}
-
-/* --- Repo card --- */
-
-.repo-card {
-  background: var(--bg-card);
-  border-radius: 14px;
-  overflow: hidden;
-  flex-shrink: 0;
-}
-
-.repo-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 14px 18px;
-}
-
-.repo-header-left {
-  display: flex;
-  align-items: baseline;
-  gap: 10px;
-}
-
-.repo-title {
-  font-size: 17px;
-  font-weight: 700;
-}
-
-.repo-obs-path {
-  font-family: var(--font-mono);
-  font-size: 12px;
-  color: var(--text-muted);
-}
-
-.arch-selector {
-  display: flex;
-  gap: 2px;
+/* pkg-row hover/disabled states — complex pseudo-class selectors kept scoped */
+.pkg-row:hover:not(:disabled) {
   background: var(--bg-muted);
-  padding: 3px;
-  border-radius: 9px;
-  border: 1px solid var(--border);
 }
 
-.arch-pill {
-  padding: 4px 12px;
-  border-radius: 7px;
-  font-size: 12px;
-  font-weight: 500;
-  cursor: pointer;
-  border: 1px solid transparent;
-  background: transparent;
-  color: var(--text-muted);
+.pkg-row:disabled {
+  cursor: default;
+  opacity: 0.7;
 }
 
-.arch-pill.active {
-  background: var(--bg-card);
-  color: var(--brand-purple);
-  border-color: var(--border-strong);
-  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.10);
-}
-
-.snippet-section {
-  padding: 0 18px 18px;
-}
-
-.snippet-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  margin-bottom: 8px;
-}
-
-.snippet-label {
-  font-size: 11px;
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
-  color: var(--text-muted);
-}
-
-.copy-btn {
-  font-size: 12px;
-  padding: 4px 10px;
-  border-radius: 6px;
-  border: 1px solid var(--border);
-  background: var(--bg-card);
-  color: var(--text-secondary);
-  cursor: pointer;
-}
-
-.copy-btn.copied {
-  color: var(--success);
-  border-color: var(--success);
-}
-
-.snippet-pre {
-  background: var(--bg-card-2);
-  padding: 14px 16px;
-  border-radius: 8px;
-  font-family: var(--font-mono);
-  font-size: 12px;
-  white-space: pre;
-  overflow-x: auto;
-  margin: 0;
-}
-
-/* --- Package list card --- */
-
-.pkg-card {
-  background: var(--bg-card);
-  border-radius: 12px;
-  overflow: hidden;
-  flex-shrink: 0;
-}
-
-.pkg-card-header {
-  display: flex;
-  align-items: baseline;
-  gap: 10px;
-  padding: 14px 18px;
-  border-bottom: 1px solid var(--border);
-}
-
-.pkg-card-title {
-  font-size: 15px;
-  font-weight: 700;
-}
-
-.pkg-card-subtitle {
-  font-size: 12px;
-  color: var(--text-muted);
-}
-
-.pkg-list {
-  overflow-y: auto;
-}
-
+/* Spinner keyframes — must stay scoped */
 @keyframes spin {
   to { transform: rotate(360deg); }
-}
-
-.packages-loading {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  padding: 48px 0;
-  gap: 12px;
 }
 
 .spinner {
@@ -571,93 +369,7 @@ function canExpand(row: PackageRow): boolean {
   animation: spin 0.8s linear infinite;
 }
 
-.loading-label {
-  font-size: 13px;
-  color: var(--text-muted);
-}
-
-.pkg-group {
-  border-bottom: 1px solid var(--border);
-}
-
-.pkg-group:last-child {
-  border-bottom: none;
-}
-
-/* Package header row — acts as a button */
-.pkg-row {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 10px 18px;
-  width: 100%;
-  text-align: left;
-  background: transparent;
-  border: none;
-  cursor: pointer;
-}
-
-.pkg-row:hover:not(:disabled) {
-  background: var(--bg-muted);
-}
-
-.pkg-row:disabled {
-  cursor: default;
-  opacity: 0.7;
-}
-
-.pkg-row.expanded {
-  background: var(--bg-muted);
-}
-
-.expand-glyph {
-  font-size: 9px;
-  color: var(--text-muted);
-  width: 10px;
-  flex-shrink: 0;
-}
-
-.pkg-name {
-  font-family: var(--font-mono);
-  font-size: 13px;
-  font-weight: 700;
-  flex: 1;
-  min-width: 0;
-  text-align: left;
-}
-
-.scope-badge {
-  font-size: 10px;
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-  padding: 2px 7px;
-  border-radius: 10px;
-  background: var(--bg-muted);
-  color: var(--text-secondary);
-  white-space: nowrap;
-}
-
-.scope-badge.scope-version {
-  background: var(--brand-purple-tint);
-  color: var(--brand-purple);
-}
-
-.pkg-version {
-  font-family: var(--font-mono);
-  font-size: 11px;
-  color: var(--text-muted);
-  white-space: nowrap;
-  flex-shrink: 0;
-}
-
-.pkg-built-at {
-  font-size: 11px;
-  color: var(--text-muted);
-  white-space: nowrap;
-  flex-shrink: 0;
-}
-
+/* Status badge base + color classes — kept scoped for clarity */
 .status-badge {
   font-size: 11px;
   font-weight: 600;
@@ -692,67 +404,15 @@ function canExpand(row: PackageRow): boolean {
   color: var(--text-muted);
 }
 
-/* Binary rows */
-.binary-list {
-  background: var(--bg-card-2);
-  border-top: 1px solid var(--border);
-  padding: 6px 0;
+/* Scrollbar styling — pseudo-element, kept scoped */
+.overflow-y-auto::-webkit-scrollbar {
+  width: 6px;
 }
-
-.binary-row {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 6px 18px 6px 38px;
-  gap: 12px;
+.overflow-y-auto::-webkit-scrollbar-track {
+  background: transparent;
 }
-
-.binary-row:hover {
-  background: var(--bg-muted);
-}
-
-.binary-details {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  min-width: 0;
-}
-
-.binary-name {
-  font-family: var(--font-mono);
-  font-size: 12px;
-  color: var(--text-secondary);
-  flex: 1;
-  min-width: 0;
-  word-break: break-all;
-}
-
-.binary-built-at {
-  font-size: 11px;
-  color: var(--text-muted);
-}
-
-.download-btn {
-  font-size: 12px;
-  padding: 3px 10px;
-  border-radius: 6px;
-  background: var(--brand-purple);
-  color: #fff;
-  text-decoration: none;
-  white-space: nowrap;
-  font-weight: 500;
-  flex-shrink: 0;
-}
-
-.binary-loading,
-.binary-error,
-.binary-empty {
-  padding: 8px 18px 8px 38px;
-  font-size: 12px;
-  color: var(--text-muted);
-}
-
-.binary-error {
-  color: var(--danger, #dc2626);
+.overflow-y-auto::-webkit-scrollbar-thumb {
+  background: var(--border);
+  border-radius: 3px;
 }
 </style>
